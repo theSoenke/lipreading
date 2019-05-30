@@ -14,8 +14,8 @@ def extract_frames(video_path, output_path):
         if not ret:
             break
 
-        name = output_path + str(currentFrame) + '.jpg'
-        cv2.imwrite(name, frame)
+        path = os.path.join(output_path, str(currentFrame) + '.png')
+        cv2.imwrite(path, frame)
         currentFrame += 1
 
     cap.release()
@@ -26,4 +26,4 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--path')
     args = parser.parse_args()
-    extract_frames(args.path, output_path='data/frames/')
+    extract_frames(args.path, output_path='data/frames')
