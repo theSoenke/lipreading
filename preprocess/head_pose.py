@@ -5,6 +5,7 @@ import dlib
 import face_alignment
 import numpy as np
 from imutils import face_utils
+from skimage import io
 
 K = [6.5308391993466671e+002, 0.0, 3.1950000000000000e+002, 0.0, 6.5308391993466671e+002, 2.3950000000000000e+002, 0.0, 0.0, 1.0]
 D = [7.0834633684407095e-002, 6.9140193737175351e-002, 0.0, 0.0, -1.3073460323689292e+000]
@@ -43,14 +44,12 @@ class HeadPose():
         self.detector = dlib.get_frontal_face_detector()
         self.predictor = dlib.shape_predictor(model_path)
 
-    def predict(self, image_path):
-        img = cv2.imread(image_path)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        dets = self.detector(img, 1)
+    def predict(self, image):
+        dets = self.detector(image, 1)
 
         assert len(dets) == 1, "Expected 1 face, got %d" % len(dets)
 
-        shape = self.predictor(img, dets[0])
+        shape = self.predictor(image, dets[0])
         shape = face_utils.shape_to_np(shape)
         image_pts = np.float32([shape[17], shape[21], shape[22], shape[26], shape[36],
                                 shape[39], shape[42], shape[45], shape[31], shape[35],
@@ -62,6 +61,11 @@ class HeadPose():
 
         return euler_angle
 
+    def predict_from_path(self, image_path):
+        image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        return self.predict(image)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -69,7 +73,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     head_pose = HeadPose()
-    euler_angle = head_pose.predict(args.path)
+    euler_angle = head_pose.predict_from_path(args.path)
     print(euler_angle)
     yaw = -euler_angle[1, 0]
     pitch = euler_angle[0, 0]
