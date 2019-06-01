@@ -7,6 +7,8 @@ import numpy as np
 from imutils import face_utils
 from skimage import io
 
+# Pretrained model http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2
+
 K = [6.5308391993466671e+002, 0.0, 3.1950000000000000e+002, 0.0, 6.5308391993466671e+002, 2.3950000000000000e+002, 0.0, 0.0, 1.0]
 D = [7.0834633684407095e-002, 6.9140193737175351e-002, 0.0, 0.0, -1.3073460323689292e+000]
 cam_matrix = np.array(K).reshape(3, 3).astype(np.float32)
@@ -40,7 +42,7 @@ line_pairs = [[0, 1], [1, 2], [2, 3], [3, 0],
 
 
 class HeadPose():
-    def __init__(self, model_path='shape_predictor_68_face_landmarks.dat'):
+    def __init__(self, model_path='data/pretrained/shape_predictor_68_face_landmarks.dat'):
         self.detector = dlib.get_frontal_face_detector()
         self.predictor = dlib.shape_predictor(model_path)
 

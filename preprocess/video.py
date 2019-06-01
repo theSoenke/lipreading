@@ -1,4 +1,5 @@
 import argparse
+import glob
 import os
 
 import cv2
@@ -32,7 +33,7 @@ def save_frames(video_path, output_path):
         cv2.imwrite(path, frame)
 
 
-def get_angles(video_path):
+def extract_angles(video_path):
     head_pose = HeadPose()
     frames = extract_frames(video_path)
     angles = []
@@ -44,17 +45,28 @@ def get_angles(video_path):
 
 
 def plot_histogram(video_path):
-    angles = get_angles(args.path)
+    angles = extract_angles(args.path)
     angles = np.array(angles)
-    yaw_values = angles[:,1]
+    yaw_values = angles[:, 1]
     plt.hist(yaw_values, bins=len(angles))
     plt.xlabel('Yaw')
     plt.show()
 
+
+def process_directory(directory, file_type='mp4'):
+    pattern = directory + "/*.%s" % file_type
+    videos = glob.glob(pattern)
+    print("Processing  %d videos" % len(videos))
+
+    for i, video in enumerate(videos):
+        angles = extract_angles(video)
+        print("[%d/%d]: %s" % (i, len(videos), video))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--path')
     args = parser.parse_args()
 
-    plot_histogram(args.path)
+    process_directory(args.path, 'mpg')
+
+    # plot_histogram(args.path)
