@@ -1,9 +1,10 @@
 import glob
 import os
 
+import torch
 from torch.utils.data import Dataset
+from torchvision import transforms
 
-from src.data.preprocess.video import load_video
 
 
 class GridDataset(Dataset):
@@ -23,7 +24,20 @@ class GridDataset(Dataset):
     def __getitem__(self, idx):
         file = self.file_list[idx]
         frames = load_video(file)
-        return {"frames": frames, "text": "test"}
+        mouth_input = []
+
+        width = 40
+        height = 20
+        temporalInput = torch.Tensor(1, len(frames), width, height)
+        for i, frame in enumerate(frames):
+            result = transforms.Compose([
+                transforms.ToPILImage(),
+                transforms.ToTensor(),
+                transforms.Normalize([0.4161, ], [0.1688, ]),
+            ])(frame)
+
+            temporalInput[0][i] = result
+        return {"input": temporalInput, "label": torch.LongTensor([1])}
 
     def build_file_list(self):
         pattern = self.path + "/**/*.mpg"

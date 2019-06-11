@@ -2,7 +2,6 @@ import argparse
 
 import cv2
 import dlib
-import face_alignment
 import numpy as np
 from imutils import face_utils
 from skimage import io

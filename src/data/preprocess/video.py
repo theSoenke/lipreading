@@ -6,7 +6,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.data.preprocess.head_pose import HeadPose
+from head_pose import HeadPose
 
 
 def load_video(video_path):
@@ -17,6 +17,7 @@ def load_video(video_path):
         if not ret:
             break
 
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         frames.append(frame)
 
     cap.release()
@@ -42,6 +43,19 @@ def extract_angles(video_path):
         angles.append(euler_angle)
 
     return angles
+
+
+def load_mouth_images(predictor, video_path, skip_frames=3):
+    frames = load_video(video_path)
+    face_rect = None
+    mouth_frames = []
+    for i, frame in enumerate(frames):
+        if i % skip_frames == 0:
+            face_rect = predictor.face_rect(frame, video_path)
+        mouth_image = predictor.mouth_image_rect(frame, face_rect)
+        mouth_frames.append(mouth_image)
+
+    return mouth_frames
 
 
 def plot_histogram(video_path):

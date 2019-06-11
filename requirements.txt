@@ -3,3 +3,4 @@ torchvision==0.3.0
 dlib==19.17.0
 numpy==1.16.4
 opencv-python==4.1.0.25
+tqdm==4.32.1
