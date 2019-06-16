@@ -1,35 +1,46 @@
 import argparse
+import time
 
 import numpy as np
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
 from src.data.lrw import LRWDataset
 from src.models.model import Model
 
 epochs = 10
 learning_rate = 1e-3
-batch_size = 18
+batch_size = 24
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data')
+parser.add_argument("--checkpoint", type=str, default='checkpoint.pkl')
 args = parser.parse_args()
+
 data_path = args.data
+checkpoint_path = args.checkpoint
 
 torch.manual_seed(42)
 np.random.seed(42)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 train_data = DataLoader(LRWDataset(directory=data_path, mode='train'), shuffle=True, batch_size=batch_size, num_workers=4)
+samples = len(train_data) * batch_size
 
-model = Model(num_classes=500).to(device)
+writer = SummaryWriter()
+model = Model(num_classes=500, pretrained_resnet=True).to(device)
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-criterion = nn.CrossEntropyLoss()
 
 
 def train(epoch):
     criterion = model.loss
+    step = (epoch * samples) // batch_size
+    batch_times = np.array([])
     for batch in train_data:
+        step += 1
+        start_time = time.time()
+
         inputs = batch['input'].to(device)
         labels = batch['label'].to(device)
 
@@ -38,6 +49,16 @@ def train(epoch):
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
+
+        batch_times = np.append(batch_times, time.time() - start_time)
+        writer.add_scalar("train_loss", loss, global_step=step)
+        if step % 50 == 0:
+            epoch_samples = batch_size * (step // (epoch + 1))
+            print("%d/%d samples, Loss: %f, Time per batch: %fms" % (epoch_samples, samples, loss, np.mean(batch_times) * 1000))
+            batch_times = np.array([])
+        if step % 500 == 0:
+            torch.save(model.state_dict(), checkpoint_path)
+            print("Saved checkpoint at step %d" % step)
 
 
 for epoch in range(epochs):

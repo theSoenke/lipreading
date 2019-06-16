@@ -113,10 +113,10 @@ def resnet34(pretrained=False, **kwargs):
 
 
 class ResNetModel(nn.Module):
-    def __init__(self):
+    def __init__(self, pretrained=False):
         super().__init__()
         self.num_classes = 256
-        self.resnet = resnet34(pretrained=True, num_classes=self.num_classes)
+        self.resnet = resnet34(pretrained=pretrained, num_classes=self.num_classes)
 
     def forward(self, x):
         transposed = x.transpose(1, 2).contiguous()

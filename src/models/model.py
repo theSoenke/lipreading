@@ -19,7 +19,7 @@ class NLLSequenceLoss(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes, pretrained_resnet=False):
         super().__init__()
         self.frontend = nn.Sequential(
             nn.Conv3d(1, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
@@ -27,7 +27,7 @@ class Model(nn.Module):
             nn.ReLU(True),
             nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
         )
-        self.resnet = ResNetModel()
+        self.resnet = ResNetModel(pretrained=pretrained_resnet)
         self.lstm = self.lstm = nn.LSTM(
             input_size=256,
             hidden_size=256,
