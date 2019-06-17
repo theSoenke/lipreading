@@ -17,7 +17,7 @@ batch_size = 24
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data')
-parser.add_argument("--checkpoint", type=str, default='checkpoint.pkl')
+parser.add_argument("--checkpoint", type=str, default='data/models/checkpoint.pkl')
 parser.add_argument("--workers", type=int, default=8)
 args = parser.parse_args()
 
@@ -31,7 +31,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 train_data = DataLoader(LRWDataset(directory=data_path, mode='train'), shuffle=True, batch_size=batch_size, num_workers=workers)
 samples = len(train_data) * batch_size
 
-writer = SummaryWriter()
+writer = SummaryWriter(log_dir='data/tensorboard')
 model = Model(num_classes=500, pretrained_resnet=True).to(device)
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 

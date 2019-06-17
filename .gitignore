@@ -1,3 +1,4 @@
-/data
+/data/datasets
+/data/tensorboard
+/data/dlib
 __pycache__
-/runs
