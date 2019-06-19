@@ -1,6 +1,6 @@
 #!/bin/bash
 
-mkdir -p data/grid/{videos,aligns}
+mkdir -p data/datasets/grid/{videos,aligns}
 for i in {1..34}; do
     if [[ $i == 21 ]]; then
         continue
