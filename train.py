@@ -35,15 +35,18 @@ writer = SummaryWriter(log_dir='data/tensorboard')
 model = Model(num_classes=500, pretrained_resnet=True).to(device)
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-
 def train(epoch):
     criterion = model.loss
     step = (epoch * samples) // batch_size
     batch_times = np.array([])
+    load_times = np.array([])
     start_time = time.time()
-    for batch in train_data:
-        step += 1
+    batch_num = len(train_data)
+    loader = iter(train_data)
+    for step in range(1, batch_num + 1):
         batch_start = time.time()
+        batch = next(loader)
+        load_times = np.append(load_times, time.time() - batch_start)
 
         inputs = batch['input'].to(device)
         labels = batch['label'].to(device)
@@ -60,14 +63,17 @@ def train(epoch):
             epoch_samples = batch_size * (step // (epoch + 1))
             duration = time.time() - start_time
             time_left = (samples - epoch_samples) * (duration / epoch_samples)
-            print("%d/%d samples, Loss: %f, Time per batch: %fms, Duration: %s, Left: %s" % (
+            print("%d/%d samples, Loss: %f, Time per sample: %fms, Load sample: %fms, Elapsed time: %s, Remaining time: %s" % (
                 epoch_samples,
-                samples, loss,
-                np.mean(batch_times) * 1000,
+                samples,
+                loss,
+                (np.mean(batch_times) * 1000) / batch_size,
+                (np.mean(load_times) * 1000) / batch_size,
                 time.strftime("%H:%M:%S", time.gmtime(duration)),
-                time.strftime("%H:%M:%S", time.gmtime(time_left))
+                time.strftime("%H:%M:%S", time.gmtime(time_left)),
             ))
             batch_times = np.array([])
+            load_times = np.array([])
         if step % 500 == 0:
             torch.save(model.state_dict(), checkpoint_path)
             print("Saved checkpoint at step %d" % step)
