@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import os
 import time
 from datetime import datetime
 
@@ -19,11 +20,13 @@ batch_size = 24
 parser = argparse.ArgumentParser()
 parser.add_argument('--data')
 parser.add_argument("--checkpoint", type=str, default='data/models/checkpoint.pkl')
+parser.add_argument("--tensorboard_logdir", type=str, default='data/tensorboard')
 parser.add_argument("--workers", type=int, default=8)
 args = parser.parse_args()
 
 data_path = args.data
 checkpoint_path = args.checkpoint
+tensorboard_logdir = args.tensorboard_logdir
 workers = args.workers
 
 torch.manual_seed(42)
@@ -33,9 +36,10 @@ train_data = DataLoader(LRWDataset(directory=data_path, mode='train'), shuffle=T
 samples = len(train_data) * batch_size
 
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
-writer = SummaryWriter(log_dir='data/tensorboard/' + current_time)
+writer = SummaryWriter(log_dir=os.path.join(args.tensorboard_logdir, current_time))
 model = Model(num_classes=500, pretrained_resnet=True).to(device)
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+
 
 def train(epoch, start_time):
     criterion = model.loss
