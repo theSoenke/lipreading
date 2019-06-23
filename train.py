@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import time
+from datetime import datetime
 
 import numpy as np
 import torch
@@ -31,16 +32,16 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 train_data = DataLoader(LRWDataset(directory=data_path, mode='train'), shuffle=True, batch_size=batch_size, num_workers=workers)
 samples = len(train_data) * batch_size
 
-writer = SummaryWriter(log_dir='data/tensorboard')
+current_time = datetime.now().strftime('%b%d_%H-%M-%S')
+writer = SummaryWriter(log_dir='data/tensorboard/' + current_time)
 model = Model(num_classes=500, pretrained_resnet=True).to(device)
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-def train(epoch):
+def train(epoch, start_time):
     criterion = model.loss
     step = (epoch * samples) // batch_size
     batch_times = np.array([])
     load_times = np.array([])
-    start_time = time.time()
     batch_num = len(train_data)
     loader = iter(train_data)
     for step in range(1, batch_num + 1):
@@ -60,7 +61,7 @@ def train(epoch):
         batch_times = np.append(batch_times, time.time() - batch_start)
         writer.add_scalar("train_loss", loss, global_step=step)
         if step % 50 == 0:
-            epoch_samples = batch_size * (step // (epoch + 1))
+            epoch_samples = batch_size * step
             duration = time.time() - start_time
             time_left = (samples - epoch_samples) * (duration / epoch_samples)
             print("%d/%d samples, Loss: %f, Time per sample: %fms, Load sample: %fms, Elapsed time: %s, Remaining time: %s" % (
@@ -81,6 +82,7 @@ def train(epoch):
 
 trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print("Trainable parameters: %d" % trainable_params)
+start_time = time.time()
 for epoch in range(epochs):
     model.train()
-    train(epoch)
+    train(epoch, start_time)
