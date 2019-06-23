@@ -1,0 +1,14 @@
+name: lipreading
+channels:
+  - pytorch
+dependencies:
+  - python=3.6
+  - pytorch=1.1.0
+  - torchvision=0.3.0
+  - cudatoolkit=10.0
+  - future
+  - imageio==2.5.0
+  - pip
+  - pip:
+      - tensorboard==1.14.0
+      - imageio-ffmpeg

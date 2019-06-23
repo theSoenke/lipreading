@@ -6,4 +6,5 @@ opencv-python==4.1.0.25
 tqdm==4.32.1
 ray==0.7.1
 imageio==2.5.0
+imageio-ffmpeg==0.3.0
 tensorboard==1.14.0
