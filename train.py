@@ -21,13 +21,14 @@ num_classes = 500
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data')
-parser.add_argument("--checkpoint", type=str, default='data/models/checkpoint.pkl')
+parser.add_argument("--checkpoint_dir", type=str, default='data/models')
 parser.add_argument("--tensorboard_logdir", type=str, default='data/tensorboard')
 parser.add_argument("--workers", type=int, default=8)
 args = parser.parse_args()
 
+current_time = datetime.now().strftime('%b%d_%H-%M-%S')
 data_path = args.data
-checkpoint_path = args.checkpoint
+checkpoint_path = os.path.join(args.checkpoint_dir, "checkpoint_" + current_time + ".pkl")
 tensorboard_logdir = args.tensorboard_logdir
 workers = args.workers
 
@@ -90,7 +91,7 @@ def train(epoch, start_time):
             load_times = np.array([])
             accuracies = np.array([])
         if step % 500 == 0:
-            create_checkpoint(model, optimizer, os.path.join(checkpoint_path, current_time))
+            create_checkpoint(model, optimizer, checkpoint_path)
             print("Saved checkpoint at step %d" % step)
 
 
