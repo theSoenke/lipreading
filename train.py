@@ -22,6 +22,7 @@ num_classes = 500
 parser = argparse.ArgumentParser()
 parser.add_argument('--data')
 parser.add_argument("--checkpoint_dir", type=str, default='data/models')
+parser.add_argument("--checkpoint", type=str)
 parser.add_argument("--tensorboard_logdir", type=str, default='data/tensorboard')
 parser.add_argument("--workers", type=int, default=8)
 args = parser.parse_args()
@@ -29,6 +30,7 @@ args = parser.parse_args()
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
 data_path = args.data
 checkpoint_path = os.path.join(args.checkpoint_dir, "checkpoint_" + current_time + ".pkl")
+checkpoint = args.checkpoint
 tensorboard_logdir = args.tensorboard_logdir
 workers = args.workers
 
