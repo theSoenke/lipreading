@@ -43,14 +43,13 @@ current_time = datetime.now().strftime('%b%d_%H-%M-%S')
 writer = SummaryWriter(log_dir=os.path.join(args.tensorboard_logdir, current_time))
 model = Model(num_classes=num_classes, pretrained_resnet=True).to(device)
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-load_checkpoint(model, optimizer, checkpoint_path)
+if checkpoint != None:
+    load_checkpoint(model, optimizer, checkpoint)
 
 
 def train(epoch, start_time):
     criterion = model.loss
-    batch_times = np.array([])
-    load_times = np.array([])
-    accuracies = np.array([])
+    batch_times, load_times, accuracies = np.array([]), np.array([]), np.array([])
     loader = iter(train_data)
     for step in range(1, len(train_data) + 1):
         batch_start = time.time()
@@ -77,7 +76,7 @@ def train(epoch, start_time):
             epoch_samples = batch_size * step
             duration = time.time() - start_time
             time_left = (samples - epoch_samples) * (duration / epoch_samples)
-            print("%d/%d samples, Loss: %f, Time per sample: %fms, Load sample: %fms, Train accuracy: %f, Elapsed time: %s, Remaining time: %s" % (
+            print("%d/%d samples, Loss: %.2f, Time per sample: %.2fms, Load sample: %.2fms, Train accuracy: %.4f, Elapsed time: %s, Remaining time: %s" % (
                 epoch_samples,
                 samples,
                 loss,
@@ -87,16 +86,15 @@ def train(epoch, start_time):
                 time.strftime("%H:%M:%S", time.gmtime(duration)),
                 time.strftime("%H:%M:%S", time.gmtime(time_left)),
             ))
-            batch_times = np.array([])
-            load_times = np.array([])
-            accuracies = np.array([])
+            batch_times, load_times, accuracies = np.array([]), np.array([]), np.array([])
         if step % 500 == 0:
             create_checkpoint(model, optimizer, checkpoint_path)
-            print("Saved checkpoint at step %d" % step)
+            print("Saved checkpoint at step %d" % global_step)
 
 
 def evaluate(outputs, labels):
-    _, predicted = torch.max(outputs, dim=2)
+    sums = torch.sum(outputs, dim=1)
+    _, predicted = torch.max(sums, dim=1)
     correct = (predicted == labels).sum().item()
     return correct / outputs.shape[2]
 
