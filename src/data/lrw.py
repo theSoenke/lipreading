@@ -8,11 +8,13 @@ from src.data.preprocess.lrw import load_video
 
 
 class LRWDataset(Dataset):
-    def __init__(self, directory, mode="train"):
+    def __init__(self, directory, num_words=500, mode="train"):
+        self.num_words = num_words
         self.file_list = self.build_file_list(directory, mode)
 
     def build_file_list(self, directory, mode):
-        labels = os.listdir(directory)
+        labels = os.listdir(directory)[:self.num_words]
+        print(labels)
         videos = []
 
         for i, label in enumerate(labels):

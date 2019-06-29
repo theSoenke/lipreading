@@ -14,10 +14,10 @@ from src.checkpoint import create_checkpoint, load_checkpoint
 from src.data.lrw import LRWDataset
 from src.models.model import Model
 
-epochs = 10
-learning_rate = 1e-3
+epochs = 50
+learning_rate = 1e-4
 batch_size = 24
-num_classes = 500
+num_classes = 10
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data')
@@ -52,8 +52,8 @@ if checkpoint != None:
 def train(epoch, start_time):
     criterion = model.loss
     batch_times, load_times, accuracies = np.array([]), np.array([]), np.array([])
-    loader = iter(train_data)
-    for step in range(1, len(train_data) + 1):
+    loader = iter(train_loader)
+    for step in range(1, len(train_loader) + 1):
         batch_start = time.time()
         batch = next(loader)
         load_times = np.append(load_times, time.time() - batch_start)
@@ -67,18 +67,21 @@ def train(epoch, start_time):
         optimizer.step()
         optimizer.zero_grad()
 
-        accuracy = evaluate(output, labels)
-        accuracies = np.append(accuracies, accuracy)
+        acc = accuracy(output, labels)
+        accuracies = np.append(accuracies, acc)
 
         batch_times = np.append(batch_times, time.time() - batch_start)
         global_step = ((epoch * samples) // batch_size) + step
         writer.add_scalar("train_loss", loss, global_step=global_step)
-        writer.add_scalar("train_acc", accuracy, global_step=global_step)
+        writer.add_scalar("train_acc", acc, global_step=global_step)
         if step % 50 == 0:
-            epoch_samples = batch_size * step
             duration = time.time() - start_time
-            time_left = (samples - epoch_samples) * (duration / epoch_samples)
-            print("%d/%d samples, Loss: %.2f, Time per sample: %.2fms, Load sample: %.2fms, Train accuracy: %.4f, Elapsed time: %s, Remaining time: %s" % (
+            epoch_samples = batch_size * step
+            samples_processed = (epoch * samples) + epoch_samples
+            total_samples = epochs * samples
+            remaining_time = (total_samples - samples_processed) * (duration / samples_processed)
+            print("Epoch: %d, %d/%d samples, Loss: %.2f, Time per sample: %.2fms, Load sample: %.2fms, Train acc: %.5f, Elapsed time: %s, Remaining time: %s" % (
+                epoch + 1,
                 epoch_samples,
                 samples,
                 loss,
@@ -86,7 +89,7 @@ def train(epoch, start_time):
                 (np.mean(load_times) * 1000) / batch_size,
                 np.mean(accuracies),
                 time.strftime("%H:%M:%S", time.gmtime(duration)),
-                time.strftime("%H:%M:%S", time.gmtime(time_left)),
+                time.strftime("%H:%M:%S", time.gmtime(remaining_time)),
             ))
             batch_times, load_times, accuracies = np.array([]), np.array([]), np.array([])
         if step % 500 == 0:
@@ -94,11 +97,11 @@ def train(epoch, start_time):
             print("Saved checkpoint at step %d" % global_step)
 
 
-def evaluate(outputs, labels):
-    sums = torch.sum(outputs, dim=1)
-    _, predicted = torch.max(sums, dim=1)
-    correct = (predicted == labels).sum().item()
-    return correct / outputs.shape[2]
+def accuracy(output, labels):
+    sums = torch.sum(output, dim=1)
+    _, predicted = sums.max(dim=1)
+    correct = (predicted == labels.squeeze(1)).sum().item()
+    return correct / output.shape[0]
 
 
 trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
