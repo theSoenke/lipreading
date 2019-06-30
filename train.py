@@ -38,7 +38,7 @@ np.random.seed(42)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 train_data = HDF5Dataset(path=data_path)
 train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size)
-# val_data = DataLoader(LRWDataset(directory=data_path, mode='val'), shuffle=False, batch_size=batch_size)
+val_loader = DataLoader(HDF5Dataset(path=data_path, mode='val'), shuffle=False, batch_size=20)
 samples = len(train_data)
 
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -97,6 +97,28 @@ def train(epoch, start_time):
             print("Saved checkpoint at step %d" % global_step)
 
 
+def evaluate(epoch):
+    criterion = model.loss
+    accuracies, losses = np.array([]), np.array([])
+    for batch in val_loader:
+        inputs = batch['input'].to(device)
+        labels = batch['label'].to(device)
+        output = model(inputs)
+        loss = criterion(output, labels.squeeze(1))
+        optimizer.zero_grad()
+
+        acc = accuracy(output, labels)
+        losses = np.append(losses, loss.item())
+        accuracies = np.append(accuracies, acc)
+
+    avg_loss = np.mean(losses)
+    avg_acc = np.mean(accuracies)
+    global_step = (epoch + 1) * samples
+    writer.add_scalar("val_loss", avg_loss, global_step=global_step)
+    writer.add_scalar("val_acc", avg_acc, global_step=global_step)
+    print("Val loss: %.3f, Val acc %.5f" % (avg_loss, avg_acc))
+
+
 def accuracy(output, labels):
     sums = torch.sum(output, dim=1)
     _, predicted = sums.max(dim=1)
@@ -110,3 +132,5 @@ start_time = time.time()
 for epoch in range(epochs):
     model.train()
     train(epoch, start_time)
+    model.eval()
+    evaluate(epoch)
