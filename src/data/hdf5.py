@@ -15,7 +15,7 @@ class HDF5Dataset(Dataset):
     def __init__(self, path, mode='train'):
         self.path = path
         h5file = open_file(path, mode="r", libver='latest', swmr=True)
-        self.table = h5file.root.lrw['train']
+        self.table = h5file.root.lrw[mode]
 
     def __len__(self):
         return len(self.table)
@@ -28,10 +28,9 @@ class HDF5Dataset(Dataset):
         return sample
 
 
-def preprocess_hdf5(dataset, output_path, group_name, table_name):
-    file = open_file(output_path, mode="w")
-    group = file.create_group("/", group_name)
-    table = file.create_table(group, table_name, Video)
+def preprocess_hdf5(dataset, output_path, table):
+    file = open_file(output_path, mode="a")
+    table = file.create_table("/lrw", table, Video, createparents=True)
     sample_row = table.row
 
     for sample in tqdm(dataset):
