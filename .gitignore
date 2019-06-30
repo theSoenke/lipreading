@@ -2,3 +2,4 @@
 /data/tensorboard
 /data/dlib
 __pycache__
+*.h5

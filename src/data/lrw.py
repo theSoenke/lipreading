@@ -6,11 +6,10 @@ from torch.utils.data import Dataset
 from src.data.preprocess.lrw import load_video
 
 
-
 class LRWDataset(Dataset):
     def __init__(self, directory, num_words=500, mode="train"):
         self.num_words = num_words
-        self.file_list = self.build_file_list(directory, mode)
+        self.file_list, self.labels = self.build_file_list(directory, mode)
 
     def build_file_list(self, directory, mode):
         labels = os.listdir(directory)[:self.num_words]
@@ -26,7 +25,7 @@ class LRWDataset(Dataset):
                     video = (i, filepath)
                     videos.append(video)
 
-        return videos
+        return videos, labels
 
     def __len__(self):
         return len(self.file_list)

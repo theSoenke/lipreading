@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from src.checkpoint import create_checkpoint, load_checkpoint
+from src.data.hdf5 import HDF5Dataset
 from src.data.lrw import LRWDataset
 from src.models.model import Model
 
@@ -24,7 +25,6 @@ parser.add_argument('--data')
 parser.add_argument("--checkpoint_dir", type=str, default='data/models')
 parser.add_argument("--checkpoint", type=str)
 parser.add_argument("--tensorboard_logdir", type=str, default='data/tensorboard')
-parser.add_argument("--workers", type=int, default=8)
 args = parser.parse_args()
 
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -32,14 +32,14 @@ data_path = args.data
 checkpoint_path = os.path.join(args.checkpoint_dir, "checkpoint_" + current_time + ".pkl")
 checkpoint = args.checkpoint
 tensorboard_logdir = args.tensorboard_logdir
-workers = args.workers
 
 torch.manual_seed(42)
 np.random.seed(42)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-train_data = DataLoader(LRWDataset(directory=data_path, mode='train'), shuffle=True, batch_size=batch_size, num_workers=workers)
-val_data = DataLoader(LRWDataset(directory=data_path, mode='val'), shuffle=False, batch_size=batch_size, num_workers=workers)
-samples = len(train_data) * batch_size
+train_data = HDF5Dataset(path=data_path)
+train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size)
+# val_data = DataLoader(LRWDataset(directory=data_path, mode='val'), shuffle=False, batch_size=batch_size)
+samples = len(train_data)
 
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
 writer = SummaryWriter(log_dir=os.path.join(args.tensorboard_logdir, current_time))

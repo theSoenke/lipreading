@@ -1,5 +1,6 @@
 name: lipreading
 channels:
+  - conda-forge
   - pytorch
 dependencies:
   - python=3.6
@@ -7,8 +8,9 @@ dependencies:
   - torchvision=0.3.0
   - cudatoolkit=10.0
   - future
-  - imageio==2.5.0
+  - imageio=2.5.0
+  - imageio-ffmpeg=0.3.0
+  - pytables=3.5.2
   - pip
   - pip:
       - tensorboard==1.14.0
-      - imageio-ffmpeg
