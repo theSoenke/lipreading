@@ -68,6 +68,7 @@ def train(epoch, start_time):
         optimizer.zero_grad()
 
         acc = accuracy(output, labels)
+        acc_top = accuracy_topk(output, labels, k=5)
         accuracies = np.append(accuracies, acc)
 
         batch_times = np.append(batch_times, time.time() - batch_start)
@@ -124,6 +125,13 @@ def accuracy(output, labels):
     _, predicted = sums.max(dim=1)
     correct = (predicted == labels.squeeze(1)).sum().item()
     return correct / output.shape[0]
+
+
+def accuracy_topk(outputs, labels, k=10):
+    sums = torch.sum(outputs, dim=1)
+    _, predicted = sums.topk(k=k, dim=1)
+    correct = (predicted == labels).sum().item()
+    return correct / outputs.shape[0]
 
 
 trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
