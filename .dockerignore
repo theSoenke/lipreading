@@ -1,2 +1,4 @@
 /data/datasets
 /data/tensorboard
+/data/preprocessed
+/data/models
