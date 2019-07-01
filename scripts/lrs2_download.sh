@@ -13,7 +13,7 @@ urls=(
 )
 
 dir=data/datasets/lrs2
-mkdir -p dir
+mkdir -p $dir
 for url in "${urls[@]}"; do
     wget --user $USER --password $PASSWORD -P $dir $url
 done
