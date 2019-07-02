@@ -11,10 +11,11 @@ class Video(IsDescription):
     label = Int32Col()
     frames = Float32Col(shape=(29, 112, 112))
 
+
 class HDF5Dataset(Dataset):
     def __init__(self, path, mode='train'):
         self.path = path
-        h5file = open_file(path, mode="r", libver='latest', swmr=True)
+        h5file = open_file(path, mode="r")
         self.table = h5file.root.lrw[mode]
 
     def __len__(self):

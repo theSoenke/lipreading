@@ -5,8 +5,11 @@ from src.data.hdf5 import preprocess_hdf5
 from src.data.lrw import LRWDataset
 
 
-def preprocess_lrw(path, num_classes):
-    output_path = "data/preprocessed/lrw_%d.h5" % num_classes
+def preprocess_lrw(path, output, num_classes):
+    if os.path.exists(output) == False:
+        os.makedirs(output)
+
+    output_path = "%s/lrw_%d.h5" % (output, num_classes)
     if os.path.exists(output_path):
         os.remove(output_path)
 
@@ -27,6 +30,8 @@ def preprocess_lrw(path, num_classes):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--data')
+    parser.add_argument('--output', default='data/preprocessed')
+    parser.add_argument('--words', type=int, default=10)
     args = parser.parse_args()
 
-    preprocess_lrw(args.data, 10)
+    preprocess_lrw(args.data, args.output, args.words)
