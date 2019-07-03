@@ -17,7 +17,6 @@ from src.models.model import Model
 
 epochs = 50
 learning_rate = 1e-4
-batch_size = 24
 num_classes = 10
 
 parser = argparse.ArgumentParser()
@@ -25,6 +24,7 @@ parser.add_argument('--data')
 parser.add_argument("--checkpoint_dir", type=str, default='data/models')
 parser.add_argument("--checkpoint", type=str)
 parser.add_argument("--tensorboard_logdir", type=str, default='data/tensorboard')
+parser.add_argument("--batch_size", type=int, default=24)
 args = parser.parse_args()
 
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -32,13 +32,14 @@ data_path = args.data
 checkpoint_path = os.path.join(args.checkpoint_dir, "checkpoint_" + current_time + ".pkl")
 checkpoint = args.checkpoint
 tensorboard_logdir = args.tensorboard_logdir
+batch_size = args.batch_size
 
 torch.manual_seed(42)
 np.random.seed(42)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 train_data = HDF5Dataset(path=data_path)
 train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size)
-val_loader = DataLoader(HDF5Dataset(path=data_path, mode='val'), shuffle=False, batch_size=20)
+val_loader = DataLoader(HDF5Dataset(path=data_path, mode='val'), shuffle=False, batch_size=batch_size * 2)
 samples = len(train_data)
 
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -50,6 +51,7 @@ if checkpoint != None:
 
 
 def train(epoch, start_time):
+    model.train()
     criterion = model.loss
     batch_times, load_times, accuracies = np.array([]), np.array([]), np.array([])
     loader = iter(train_loader)
@@ -98,19 +100,20 @@ def train(epoch, start_time):
             print("Saved checkpoint at step %d" % global_step)
 
 
-def evaluate(epoch):
+def validate(epoch):
+    model.eval()
     criterion = model.loss
     accuracies, losses = np.array([]), np.array([])
-    for batch in val_loader:
-        inputs = batch['input'].to(device)
-        labels = batch['label'].to(device)
-        output = model(inputs)
-        loss = criterion(output, labels.squeeze(1))
-        optimizer.zero_grad()
+    with torch.no_grad():
+        for batch in val_loader:
+            inputs = batch['input'].to(device)
+            labels = batch['label'].to(device)
+            output = model(inputs)
+            loss = criterion(output, labels.squeeze(1))
 
-        acc = accuracy(output, labels)
-        losses = np.append(losses, loss.item())
-        accuracies = np.append(accuracies, acc)
+            acc = accuracy(output, labels)
+            losses = np.append(losses, loss.item())
+            accuracies = np.append(accuracies, acc)
 
     avg_loss = np.mean(losses)
     avg_acc = np.mean(accuracies)
@@ -138,7 +141,5 @@ trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print("Trainable parameters: %d" % trainable_params)
 start_time = time.time()
 for epoch in range(epochs):
-    model.train()
     train(epoch, start_time)
-    model.eval()
-    evaluate(epoch)
+    validate(epoch)
