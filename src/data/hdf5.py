@@ -13,10 +13,10 @@ class Video(IsDescription):
 
 
 class HDF5Dataset(Dataset):
-    def __init__(self, path, mode='train'):
+    def __init__(self, path, table='train'):
         self.path = path
         h5file = open_file(path, mode="r")
-        self.table = h5file.root.lrw[mode]
+        self.table = h5file.root[table]
 
     def __len__(self):
         return len(self.table)
@@ -31,7 +31,7 @@ class HDF5Dataset(Dataset):
 
 def preprocess_hdf5(dataset, output_path, table):
     file = open_file(output_path, mode="a")
-    table = file.create_table("/lrw", table, Video, createparents=True)
+    table = file.create_table("/", table, Video)
     sample_row = table.row
 
     for sample in tqdm(dataset):
