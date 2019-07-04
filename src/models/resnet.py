@@ -113,10 +113,16 @@ def resnet34(pretrained=False, **kwargs):
 
 
 class ResNetModel(nn.Module):
-    def __init__(self, pretrained=False):
+    def __init__(self, layers=18, pretrained=False):
         super().__init__()
         self.num_classes = 256
-        self.resnet = resnet34(pretrained=pretrained, num_classes=self.num_classes)
+        if layers == 18:
+            self.resnet = resnet18(pretrained=pretrained, num_classes=self.num_classes)
+        elif layers == 34:
+            self.resnet = resnet34(pretrained=pretrained, num_classes=self.num_classes)
+        else:
+            raise NotImplementedError("number of resnet layers not supported")
+
 
     def forward(self, x):
         transposed = x.transpose(1, 2).contiguous()

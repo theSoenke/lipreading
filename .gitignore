@@ -3,3 +3,4 @@
 /data/dlib
 __pycache__
 *.h5
+/wandb
