@@ -1,10 +1,9 @@
 import os
 
 import torch
+from tables import Float32Col, Int32Col, IsDescription, open_file
 from torch.utils.data import Dataset
 from tqdm import tqdm
-
-from tables import Float32Col, Int32Col, IsDescription, open_file
 
 
 class Video(IsDescription):
