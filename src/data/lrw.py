@@ -31,14 +31,18 @@ class LRWDataset(Dataset):
 
         return videos, labels
 
+
     def load_video(self, file):
         vid = imageio.get_reader(file,  'ffmpeg')
         frames = []
         for i in range(0, 29):
             image = vid.get_data(i)
             if i == 14:
-                angles = self.head_pose.predict(image)
-                yaw = -angles[1, 0]
+                try:
+                    angles = self.head_pose.predict(image)
+                    yaw = -angles[1, 0]
+                except:
+                    yaw = None
             image = F.to_tensor(image)
             frames.append(image)
 
@@ -68,5 +72,8 @@ class LRWDataset(Dataset):
     def __getitem__(self, idx):
         label, filename = self.file_list[idx]
         frames, yaw = self.load_video(filename)
-        sample = {'input': frames, 'label': torch.LongTensor([label])}
+        if yaw == None:
+            yaw = 1000
+            # print("No face found: %s" % filename)
+        sample = {'input': frames, 'label': torch.LongTensor([label]), 'yaw': yaw}
         return sample

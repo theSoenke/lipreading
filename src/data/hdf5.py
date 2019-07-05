@@ -11,6 +11,7 @@ from tqdm import tqdm
 class Video(IsDescription):
     label = Int32Col()
     frames = Float32Col(shape=(29, 112, 112))
+    yaw = Float32Col()
 
 
 class HDF5Dataset(Dataset):
@@ -41,6 +42,7 @@ def preprocess_hdf5(dataset, output_path, table):
             for i in range(len(batch['label'])):
                 sample_row['frames'] = batch['input'][i].numpy()
                 sample_row['label'] = batch['label'][i].numpy()
+                sample_row['yaw'] = batch['yaw'][i].numpy()
                 sample_row.append()
                 progress.update(1)
     table.flush()
