@@ -1,8 +1,10 @@
+import psutil
 import os
 
+import psutil
 import torch
 from tables import Float32Col, Int32Col, IsDescription, open_file
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 
@@ -27,15 +29,19 @@ class HDF5Dataset(Dataset):
         sample = {'input': frames, 'label': torch.LongTensor([label])}
         return sample
 
-
 def preprocess_hdf5(dataset, output_path, table):
+    workers = psutil.cpu_count()
     file = open_file(output_path, mode="a")
     table = file.create_table("/", table, Video)
     sample_row = table.row
+    data_loader = DataLoader(dataset, batch_size=128, shuffle=False, num_workers=workers)
 
-    for sample in tqdm(dataset):
-        sample_row['frames'] = sample['input'].numpy()
-        sample_row['label'] = sample['label'].numpy()
-        sample_row.append()
+    with tqdm(total=len(dataset)) as progress:
+        for batch in data_loader:
+            for i in range(len(batch['label'])):
+                sample_row['frames'] = batch['input'][i].numpy()
+                sample_row['label'] = batch['label'][i].numpy()
+                sample_row.append()
+                progress.update(1)
     table.flush()
     file.close()
