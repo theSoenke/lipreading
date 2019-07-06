@@ -4,8 +4,8 @@ import os
 import imageio
 
 from src.data.hdf5 import preprocess_hdf5
-from src.data.preprocess.head_pose import HeadPose
 from src.data.lrw import LRWDataset
+from src.data.preprocess.head_pose import HeadPose
 
 
 def preprocess_lrw(path, output, num_words):

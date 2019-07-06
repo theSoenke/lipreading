@@ -34,16 +34,16 @@ def preprocess_hdf5(dataset, output_path, table):
     workers = psutil.cpu_count()
     file = open_file(output_path, mode="a")
     table = file.create_table("/", table, Video)
-    sample_row = table.row
+    row = table.row
     data_loader = DataLoader(dataset, batch_size=128, shuffle=False, num_workers=workers)
 
     with tqdm(total=len(dataset)) as progress:
         for batch in data_loader:
             for i in range(len(batch['label'])):
-                sample_row['frames'] = batch['input'][i].numpy()
-                sample_row['label'] = batch['label'][i].numpy()
-                sample_row['yaw'] = batch['yaw'][i].numpy()
-                sample_row.append()
+                row['frames'] = batch['input'][i].numpy()
+                row['label'] = batch['label'][i].numpy()
+                row['yaw'] = batch['yaw'][i].numpy()
+                row.append()
                 progress.update(1)
     table.flush()
     file.close()
