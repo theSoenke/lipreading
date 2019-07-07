@@ -1,10 +1,13 @@
 import os
 
 import imageio
+import psutil
 import torch
 import torchvision.transforms.functional as F
-from torch.utils.data import Dataset
+from tables import Float32Col, Int32Col, IsDescription, open_file
+from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
+from tqdm import tqdm
 
 from src.data.preprocess.head_pose import HeadPose
 
@@ -31,12 +34,11 @@ class LRWDataset(Dataset):
 
         return videos, labels
 
-
     def load_video(self, file):
-        vid = imageio.get_reader(file,  'ffmpeg')
+        video = imageio.get_reader(file,  'ffmpeg')
         frames = []
         for i in range(0, 29):
-            image = vid.get_data(i)
+            image = video.get_data(i)
             if i == 14:
                 try:
                     angles = self.head_pose.predict(image)
@@ -77,3 +79,49 @@ class LRWDataset(Dataset):
             # print("No face found: %s" % filename)
         sample = {'input': frames, 'label': torch.LongTensor([label]), 'yaw': yaw}
         return sample
+
+
+class Video(IsDescription):
+    label = Int32Col()
+    frames = Float32Col(shape=(29, 112, 112))
+    yaw = Float32Col()
+
+
+def preprocess(path, output, num_words):
+    if os.path.exists(output) == False:
+        os.makedirs(output)
+
+    output_path = "%s/lrw_%d.h5" % (output, num_words)
+    if os.path.exists(output_path):
+        os.remove(output_path)
+
+    labels = None
+    for mode in ['train', 'val', 'test']:
+        print("Generating %s data" % mode)
+        dataset = LRWDataset(directory=path, num_words=num_words, mode=mode)
+        if labels != None:
+            assert labels == dataset.labels
+        labels = dataset.labels
+        preprocess_hdf5(
+            dataset=dataset,
+            output_path=output_path,
+            table=mode
+        )
+
+
+def preprocess_hdf5(dataset, output_path, table):
+    workers = psutil.cpu_count()
+    file = open_file(output_path, mode="a")
+    table = file.create_table("/", table, Video)
+    row = table.row
+    data_loader = DataLoader(dataset, batch_size=128, shuffle=False, num_workers=workers)
+
+    with tqdm(total=len(dataset)) as progress:
+        for batch in data_loader:
+            for i in range(len(batch['yaw'])):
+                for column in batch:
+                    row[column] = batch[column][i].numpy()
+                row.append()
+                progress.update(1)
+    table.flush()
+    file.close()

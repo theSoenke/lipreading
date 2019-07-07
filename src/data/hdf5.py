@@ -1,17 +1,6 @@
-import psutil
-import os
-
-import psutil
 import torch
-from tables import Float32Col, Int32Col, IsDescription, open_file
-from torch.utils.data import DataLoader, Dataset
-from tqdm import tqdm
-
-
-class Video(IsDescription):
-    label = Int32Col()
-    frames = Float32Col(shape=(29, 112, 112))
-    yaw = Float32Col()
+from tables import open_file
+from torch.utils.data import Dataset
 
 
 class HDF5Dataset(Dataset):
@@ -27,23 +16,5 @@ class HDF5Dataset(Dataset):
         row = self.table[idx]
         label = row['label']
         frames = torch.from_numpy(row['frames']).unsqueeze(0)
-        sample = {'input': frames, 'label': torch.LongTensor([label])}
+        sample = {'frames': frames, 'label': torch.LongTensor([label])}
         return sample
-
-def preprocess_hdf5(dataset, output_path, table):
-    workers = psutil.cpu_count()
-    file = open_file(output_path, mode="a")
-    table = file.create_table("/", table, Video)
-    row = table.row
-    data_loader = DataLoader(dataset, batch_size=128, shuffle=False, num_workers=workers)
-
-    with tqdm(total=len(dataset)) as progress:
-        for batch in data_loader:
-            for i in range(len(batch['label'])):
-                row['frames'] = batch['input'][i].numpy()
-                row['label'] = batch['label'][i].numpy()
-                row['yaw'] = batch['yaw'][i].numpy()
-                row.append()
-                progress.update(1)
-    table.flush()
-    file.close()
