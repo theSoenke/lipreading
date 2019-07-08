@@ -77,7 +77,7 @@ class LRWDataset(Dataset):
         if yaw == None:
             yaw = 1000
             # print("No face found: %s" % filename)
-        sample = {'input': frames, 'label': torch.LongTensor([label]), 'yaw': yaw}
+        sample = {'frames': frames, 'label': torch.LongTensor([label]), 'yaw': yaw}
         return sample
 
 

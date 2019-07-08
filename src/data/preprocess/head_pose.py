@@ -4,7 +4,6 @@ import cv2
 import dlib
 import numpy as np
 from imutils import face_utils
-from skimage import io
 
 # Pretrained model http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2
 

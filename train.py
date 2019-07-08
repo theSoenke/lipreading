@@ -63,10 +63,10 @@ def train(epoch, start_time):
         batch = next(loader)
         load_times = np.append(load_times, time.time() - batch_start)
 
-        inputs = batch['input'].to(device)
+        frames = batch['frames'].to(device)
         labels = batch['label'].to(device)
 
-        output = model(inputs)
+        output = model(frames)
         loss = criterion(output, labels.squeeze(1))
         loss.backward()
         optimizer.step()
@@ -109,9 +109,9 @@ def validate(epoch):
     criterion = model.loss
     accuracies, losses = np.array([]), np.array([])
     for batch in val_loader:
-        inputs = batch['input'].to(device)
+        frames = batch['frames'].to(device)
         labels = batch['label'].to(device)
-        output = model(inputs)
+        output = model(frames)
         loss = criterion(output, labels.squeeze(1))
 
         acc = accuracy(output, labels)

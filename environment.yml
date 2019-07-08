@@ -15,4 +15,7 @@ dependencies:
   - pip
   - pip:
       - tensorboard==1.14.0
+      - opencv-python==4.1.0.25
+      - imutils==0.5.2
+      - dlib==19.17.0
       - wandb
