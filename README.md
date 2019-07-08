@@ -7,7 +7,7 @@
 
 ## Train
 
-    python3 train.py --data data/preprocessed/lrw.h5
+    python3 train.py --data data/preprocessed/lrw_10.h5 --words 10
 
 ### Docker
 

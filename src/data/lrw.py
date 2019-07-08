@@ -1,4 +1,5 @@
 import os
+import random
 
 import imageio
 import psutil
@@ -19,7 +20,11 @@ class LRWDataset(Dataset):
         self.head_pose = HeadPose()
 
     def build_file_list(self, directory, mode):
-        labels = os.listdir(directory)[:self.num_words]
+        random.seed(42)
+        labels = os.listdir(directory)
+        labels.sort()
+        random.shuffle(labels)
+        labels = labels[:self.num_words]
         print(labels)
         videos = []
 
