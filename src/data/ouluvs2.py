@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from tqdm import tqdm
 
-from src.data.preprocess.head_pose import HeadPose
+from src.data.preprocess.pose_fa import HeadPose
 
 
 class OuluVS2Dataset(Dataset):
@@ -70,7 +70,8 @@ class Video(IsDescription):
     file = StringCol(32)
 
 
-def preprocess(path, output):
+def preprocess(path, output, workers=None):
+    workers = psutil.cpu_count() if workers == None else workers
     if os.path.exists(output) == False:
         os.makedirs(output)
 
@@ -84,11 +85,11 @@ def preprocess(path, output):
         dataset=dataset,
         output_path=output_path,
         table='train',
+        workers=workers,
     )
 
 
-def preprocess_hdf5(dataset, output_path, table):
-    workers = psutil.cpu_count()
+def preprocess_hdf5(dataset, output_path, table, workers):
     file = open_file(output_path, mode="a")
     table = file.create_table("/", table, Video)
     row = table.row

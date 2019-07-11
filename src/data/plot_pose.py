@@ -7,11 +7,12 @@ import tables
 
 def plot_pose(path):
     h5file = tables.open_file(path, mode='r')
-    rows = h5file.root['train'].where('yaw < 180')
-    angles = [row['yaw'] for row in rows]
-    angles = np.array(angles)
-    plt.hist(angles, bins=180)
-    plt.xlabel('Yaw')
+    column = 'yaw_fa'
+    rows = h5file.root['train'].where('%s < 180' % column)
+    angles_fa = [row[column] for row in rows]
+    angles_fa = np.array(angles_fa)
+    plt.hist(angles_fa, bins=180)
+    plt.xlabel(column)
     plt.show()
 
 

@@ -10,14 +10,14 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from tqdm import tqdm
 
-from src.data.preprocess.head_pose import HeadPose
+from src.data.preprocess.pose_fa import HeadPose
 
 
 class LRWDataset(Dataset):
     def __init__(self, directory, num_words=500, mode="train"):
         self.num_words = num_words
         self.file_list, self.labels = self.build_file_list(directory, mode)
-        self.head_pose = HeadPose()
+        self.head_pose = HeadPose(use_cuda=True)
 
     def build_file_list(self, directory, mode):
         random.seed(42)
@@ -40,15 +40,20 @@ class LRWDataset(Dataset):
         return videos, labels
 
     def load_video(self, file):
-        video = imageio.get_reader(file,  'ffmpeg')
+        try:
+            video = imageio.get_reader(file,  'ffmpeg')
+        except Exception as e:
+            print("File: %s, Error: %s" % (file, e))
+            raise(e)
+
         frames = []
         for i in range(0, 29):
             image = video.get_data(i)
             if i == 14:
                 try:
-                    angles = self.head_pose.predict(image)
-                    yaw = -angles[1, 0]
-                except:
+                    yaw = self.head_pose.predict(image)['yaw']
+                except Exception as e:
+                    print("File: %s, Error: %s" % (file, e))
                     yaw = None
             image = F.to_tensor(image)
             frames.append(image)
@@ -78,21 +83,28 @@ class LRWDataset(Dataset):
 
     def __getitem__(self, idx):
         label, filename = self.file_list[idx]
-        frames, yaw = self.load_video(filename)
-        if yaw == None:
-            yaw = 1000
-            # print("No face found: %s" % filename)
-        sample = {'frames': frames, 'label': torch.LongTensor([label]), 'yaw': yaw}
+        frames, yaw_dlib, yaw_fa = self.load_video(filename)
+        if yaw_dlib == None:
+            yaw_dlib = 500
+        if yaw_fa == None:
+            yaw_fa = 500
+        sample = {
+            'frames': frames,
+            'label': torch.LongTensor([label]),
+            'yaw': yaw,
+        }
         return sample
 
 
 class Video(IsDescription):
     label = Int32Col()
     frames = Float32Col(shape=(29, 112, 112))
-    yaw = Float32Col()
+    yaw_dlib = Float32Col()
+    yaw_fa = Float32Col()
 
 
-def preprocess(path, output, num_words):
+def preprocess(path, output, num_words, workers=None):
+    workers = psutil.cpu_count() if workers == None else workers
     if os.path.exists(output) == False:
         os.makedirs(output)
 
@@ -110,12 +122,12 @@ def preprocess(path, output, num_words):
         preprocess_hdf5(
             dataset=dataset,
             output_path=output_path,
-            table=mode
+            table=mode,
+            workers=workers
         )
 
 
-def preprocess_hdf5(dataset, output_path, table):
-    workers = psutil.cpu_count()
+def preprocess_hdf5(dataset, output_path, table, workers=0):
     file = open_file(output_path, mode="a")
     table = file.create_table("/", table, Video)
     row = table.row

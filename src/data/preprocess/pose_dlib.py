@@ -59,7 +59,7 @@ class HeadPose():
         pose_mat = cv2.hconcat((rotation_mat, translation_vec))
         _, _, _, _, _, _, euler_angle = cv2.decomposeProjectionMatrix(pose_mat)
 
-        return euler_angle
+        return {'pitch': euler_angle[0, 0], 'yaw': euler_angle[1, 0], 'roll': euler_angle[2, 0]}
 
     def predict_from_path(self, image_path):
         image = cv2.imread(image_path)
