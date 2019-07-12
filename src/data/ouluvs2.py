@@ -15,14 +15,13 @@ from src.data.preprocess.pose_fa import HeadPose
 class OuluVS2Dataset(Dataset):
     def __init__(self, directory):
         self.file_list = self.build_file_list(directory)
-        self.head_pose = HeadPose()
+        self.head_pose = HeadPose(use_cuda=True)
 
     def build_file_list(self, directory):
         videos = []
         files = os.listdir(directory)
         for file in files:
             if file.endswith("mp4"):
-
                 filepath = directory + "/{}".format(file)
                 videos.append(filepath)
         return videos
@@ -32,8 +31,13 @@ class OuluVS2Dataset(Dataset):
         image = video.get_data(0)
         try:
             angles = self.head_pose.predict(image)
-            yaw = -angles[1, 0]
-        except:
+            if angles == None:
+                print("File: %s, Error: Could not detect pose" % (file))
+                yaw = None
+            else:
+                yaw = angles['yaw']
+        except Exception as e:
+            print("File: %s, Error: %s" % (file, e))
             yaw = None
 
         return yaw

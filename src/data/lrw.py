@@ -51,7 +51,12 @@ class LRWDataset(Dataset):
             image = video.get_data(i)
             if i == 14:
                 try:
-                    yaw = self.head_pose.predict(image)['yaw']
+                    angles = self.head_pose.predict(image)
+                    if angles == None:
+                        print("File: %s, Error: Could not detect pose" % (file))
+                        yaw = None
+                    else:
+                        yaw = angles['yaw']
                 except Exception as e:
                     print("File: %s, Error: %s" % (file, e))
                     yaw = None
@@ -83,11 +88,9 @@ class LRWDataset(Dataset):
 
     def __getitem__(self, idx):
         label, filename = self.file_list[idx]
-        frames, yaw_dlib, yaw_fa = self.load_video(filename)
-        if yaw_dlib == None:
-            yaw_dlib = 500
-        if yaw_fa == None:
-            yaw_fa = 500
+        frames, yaw = self.load_video(filename)
+        if yaw == None:
+            yaw = 500
         sample = {
             'frames': frames,
             'label': torch.LongTensor([label]),
@@ -99,8 +102,7 @@ class LRWDataset(Dataset):
 class Video(IsDescription):
     label = Int32Col()
     frames = Float32Col(shape=(29, 112, 112))
-    yaw_dlib = Float32Col()
-    yaw_fa = Float32Col()
+    yaw = Float32Col()
 
 
 def preprocess(path, output, num_words, workers=None):
