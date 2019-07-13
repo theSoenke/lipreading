@@ -51,11 +51,8 @@ class OuluVS2Dataset(Dataset):
         split = file.split("/")[-1][:-4].split("_")
         speaker, view, utterance = [int(x[1:]) for x in split]
         if yaw == None:
-            # print("No face found: %s" % file)
             yaw = 500
-            view = 500
-        else:
-            view = [0, 30, 45, 60, 90][view-1]
+        view = [0, 30, 45, 60, 90][view-1]
         sample = {
             'yaw': yaw,
             "view": view,
@@ -95,7 +92,7 @@ def preprocess(path, output, workers=None):
 
 def preprocess_hdf5(dataset, output_path, table, workers):
     file = open_file(output_path, mode="a")
-    table = file.create_table("/", table, Video)
+    table = file.create_table("/", table, Video, expectedrows=len(dataset))
     row = table.row
     data_loader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=workers)
 

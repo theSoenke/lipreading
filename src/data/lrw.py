@@ -131,7 +131,7 @@ def preprocess(path, output, num_words, workers=None):
 
 def preprocess_hdf5(dataset, output_path, table, workers=0):
     file = open_file(output_path, mode="a")
-    table = file.create_table("/", table, Video)
+    table = file.create_table("/", table, Video, expectedrows=len(dataset))
     row = table.row
     data_loader = DataLoader(dataset, batch_size=128, shuffle=False, num_workers=workers)
 
