@@ -9,7 +9,13 @@ import numpy as np
 class HeadPose():
     def __init__(self, use_cuda=False):
         device = "cuda" if use_cuda else "cpu"
-        self.predictor = face_alignment.FaceAlignment(face_alignment.LandmarksType._3D, flip_input=False, device=device)
+        self.predictor = face_alignment.FaceAlignment(
+            face_alignment.LandmarksType._3D,
+            face_detector='sfd',
+            flip_input=False,
+            device=device,
+            verbose=True,
+        )
 
     def rotationToEuler(self, rotation):
         sy = math.sqrt(rotation[0, 0] * rotation[0, 0] + rotation[1, 0] * rotation[1, 0])

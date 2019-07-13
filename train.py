@@ -29,8 +29,6 @@ parser.add_argument("--resnet", type=int, default=18)
 parser.add_argument("--pretrained", default=True, type=lambda x: (str(x).lower() == 'true'))
 args = parser.parse_args()
 
-current_time = datetime.now().strftime('%b%d_%H-%M-%S')
-checkpoint_path = os.path.join(args.checkpoint_dir, "checkpoint_" + current_time + ".pkl")
 batch_size = args.batch_size
 epochs = args.epochs
 
@@ -98,9 +96,6 @@ def train(epoch, start_time):
                 time.strftime("%H:%M:%S", time.gmtime(remaining_time)),
             ))
             batch_times, load_times, accuracies = np.array([]), np.array([]), np.array([])
-        if step % 500 == 0:
-            create_checkpoint(model, optimizer, checkpoint_path)
-            print("Saved checkpoint at step %d" % global_step)
 
 
 @torch.no_grad()
@@ -126,6 +121,8 @@ def validate(epoch):
     wandb.log({"val_acc": avg_acc, "val_loss": avg_loss})
     print("val_loss: %.3f, val_acc %.5f" % (avg_loss, avg_acc))
 
+    return avg_acc
+
 
 def accuracy(output, labels):
     sums = torch.sum(output, dim=1)
@@ -144,9 +141,17 @@ def accuracy_topk(outputs, labels, k=10):
 trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print("Trainable parameters: %d" % trainable_params)
 start_time = time.time()
+best_val_acc = 0
 for epoch in range(epochs):
     train(epoch, start_time)
-    validate(epoch)
+    val_acc = validate(epoch)
+    if val_acc > best_val_acc:
+        best_val_acc = val_acc
+        wandb.log({"best_val_acc": best_val_acc})
+        checkpoint_name = "checkpoint_val_acc_%.5f_%s.pkl" % (val_acc, current_time)
+        checkpoint_path = os.path.join(args.checkpoint_dir, checkpoint_name)
+        create_checkpoint(model, optimizer, checkpoint_path)
+        print("Saved checkpoint: %s" % checkpoint_path)
 
 wandb.config.parameters = trainable_params
 wandb.save(checkpoint_path)

@@ -5,7 +5,7 @@ import imageio
 import psutil
 import torch
 import torchvision.transforms.functional as F
-from tables import Float32Col, Int32Col, IsDescription, open_file
+from tables import Float32Col, Int32Col, StringCol, IsDescription, open_file
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from tqdm import tqdm
@@ -33,8 +33,8 @@ class LRWDataset(Dataset):
             files = os.listdir(dirpath)
             for file in files:
                 if file.endswith("mp4"):
-                    filepath = dirpath + "/{}".format(file)
-                    video = (i, filepath)
+                    path = dirpath + "/{}".format(file)
+                    video = (i, path, file)
                     videos.append(video)
 
         return videos, labels
@@ -87,14 +87,15 @@ class LRWDataset(Dataset):
         return len(self.file_list)
 
     def __getitem__(self, idx):
-        label, filename = self.file_list[idx]
-        frames, yaw = self.load_video(filename)
+        label, path, filename = self.file_list[idx]
+        frames, yaw = self.load_video(path)
         if yaw == None:
             yaw = 500
         sample = {
             'frames': frames,
             'label': torch.LongTensor([label]),
             'yaw': yaw,
+            'file': filename,
         }
         return sample
 
@@ -103,6 +104,7 @@ class Video(IsDescription):
     label = Int32Col()
     frames = Float32Col(shape=(29, 112, 112))
     yaw = Float32Col()
+    file = StringCol(32)
 
 
 def preprocess(path, output, num_words, workers=None):
