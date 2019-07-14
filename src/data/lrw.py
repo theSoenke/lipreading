@@ -1,23 +1,24 @@
 import os
 import random
 
-import imageio
+import cv2
 import psutil
 import torch
 import torchvision.transforms.functional as F
-from tables import Float32Col, Int32Col, StringCol, IsDescription, open_file
+from PIL import Image
+from tables import Float32Col, Int32Col, IsDescription, StringCol, open_file
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from tqdm import tqdm
 
-from src.data.preprocess.pose_fa import HeadPose
+from src.data.preprocess.pose_hopenet import HeadPose
 
 
 class LRWDataset(Dataset):
     def __init__(self, directory, num_words=500, mode="train"):
         self.num_words = num_words
         self.file_list, self.labels = self.build_file_list(directory, mode)
-        self.head_pose = HeadPose(use_cuda=True)
+        self.head_pose = HeadPose()
 
     def build_file_list(self, directory, mode):
         random.seed(42)
@@ -40,15 +41,11 @@ class LRWDataset(Dataset):
         return videos, labels
 
     def load_video(self, file):
-        try:
-            video = imageio.get_reader(file,  'ffmpeg')
-        except Exception as e:
-            print("File: %s, Error: %s" % (file, e))
-            raise(e)
-
+        cap = cv2.VideoCapture(file)
         frames = []
         for i in range(0, 29):
-            image = video.get_data(i)
+            _, frame = cap.read()
+            image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             if i == 14:
                 try:
                     angles = self.head_pose.predict(image)
@@ -141,7 +138,11 @@ def preprocess_hdf5(dataset, output_path, table, workers=0):
         for batch in data_loader:
             for i in range(len(batch['yaw'])):
                 for column in batch:
-                    row[column] = batch[column][i].numpy()
+                    value = batch[column][i]
+                    if isinstance(value, str):
+                        row[column] = batch[column][i]
+                    else:
+                        row[column] = batch[column][i].numpy()
                 row.append()
                 progress.update(1)
     table.flush()

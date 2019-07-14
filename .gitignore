@@ -1,6 +1,7 @@
 /data/datasets
 /data/tensorboard
 /data/dlib
+/data/hopenet
 __pycache__
 *.h5
 /wandb

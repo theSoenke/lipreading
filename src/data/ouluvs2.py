@@ -1,34 +1,37 @@
 import os
 
-import imageio
+import cv2
 import psutil
 import torch
 import torchvision.transforms.functional as F
+from PIL import Image
 from tables import Float32Col, Int32Col, IsDescription, StringCol, open_file
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from tqdm import tqdm
 
-from src.data.preprocess.pose_fa import HeadPose
+from src.data.preprocess.pose_hopenet import HeadPose
 
 
 class OuluVS2Dataset(Dataset):
     def __init__(self, directory):
         self.file_list = self.build_file_list(directory)
-        self.head_pose = HeadPose(use_cuda=True)
+        self.head_pose = HeadPose()
 
     def build_file_list(self, directory):
         videos = []
         files = os.listdir(directory)
         for file in files:
             if file.endswith("mp4"):
-                filepath = directory + "/{}".format(file)
-                videos.append(filepath)
+                path = directory + "/{}".format(file)
+                video = (path, file)
+                videos.append(video)
         return videos
 
     def load_video(self, file):
-        video = imageio.get_reader(file,  'ffmpeg')
-        image = video.get_data(0)
+        cap = cv2.VideoCapture(file)
+        _, frame = cap.read()
+        image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         try:
             angles = self.head_pose.predict(image)
             if angles == None:
@@ -46,9 +49,9 @@ class OuluVS2Dataset(Dataset):
         return len(self.file_list)
 
     def __getitem__(self, idx):
-        file = self.file_list[idx]
-        yaw = self.load_video(file)
-        split = file.split("/")[-1][:-4].split("_")
+        path, filename = self.file_list[idx]
+        yaw = self.load_video(path)
+        split = path.split("/")[-1][:-4].split("_")
         speaker, view, utterance = [int(x[1:]) for x in split]
         if yaw == None:
             yaw = 500
@@ -57,7 +60,7 @@ class OuluVS2Dataset(Dataset):
             'yaw': yaw,
             "view": view,
             "speaker": speaker,
-            "file": file,
+            "file": filename,
             "utterance": utterance,
         }
         return sample

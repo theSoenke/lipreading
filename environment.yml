@@ -8,8 +8,6 @@ dependencies:
   - torchvision=0.3.0
   - cudatoolkit=10.0
   - future
-  - imageio=2.5.0
-  - imageio-ffmpeg=0.3.0
   - pytables=3.5.2
   - tqdm=4.32.2
   - pip
