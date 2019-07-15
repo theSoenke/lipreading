@@ -5,11 +5,11 @@ import numpy as np
 import tables
 
 
-def accuracy(preds, labels, files):
+def accuracy(preds, labels, files, degree=15):
     correct = 0
     for i, view in enumerate(labels):
         angle = preds[i]
-        if angle - 15 <= view and angle + 15 >= view:
+        if angle - degree <= view and angle + degree >= view:
             correct += 1
         else:
             print("Expected: %.2f, Actual: %.2f, File: %s" % (view, angle, files[i]))
