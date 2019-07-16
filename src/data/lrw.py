@@ -14,23 +14,27 @@ from tqdm import tqdm
 from src.data.preprocess.pose_hopenet import HeadPose
 
 
+def build_word_list(directory, num_words):
+    random.seed(42)
+    words = os.listdir(directory)
+    words.sort()
+    random.shuffle(words)
+    words = words[:num_words]
+    return words
+
+
 class LRWDataset(Dataset):
     def __init__(self, directory, num_words=500, mode="train"):
         self.num_words = num_words
-        self.file_list, self.labels = self.build_file_list(directory, mode)
+        self.file_list, self.words = self.build_file_list(directory, mode)
         self.head_pose = HeadPose()
 
     def build_file_list(self, directory, mode):
-        random.seed(42)
-        labels = os.listdir(directory)
-        labels.sort()
-        random.shuffle(labels)
-        labels = labels[:self.num_words]
-        print(labels)
+        words = build_word_list(directory, self.num_words)
+        print(words)
         videos = []
-
-        for i, label in enumerate(labels):
-            dirpath = directory + "/{}/{}".format(label, mode)
+        for i, word in enumerate(words):
+            dirpath = directory + "/{}/{}".format(word, mode)
             files = os.listdir(dirpath)
             for file in files:
                 if file.endswith("mp4"):
@@ -38,7 +42,7 @@ class LRWDataset(Dataset):
                     video = (i, path, file)
                     videos.append(video)
 
-        return videos, labels
+        return videos, words
 
     def load_video(self, file):
         cap = cv2.VideoCapture(file)
@@ -93,6 +97,7 @@ class LRWDataset(Dataset):
             'label': torch.LongTensor([label]),
             'yaw': yaw,
             'file': filename,
+            'word': self.words[label],
         }
         return sample
 
@@ -102,6 +107,7 @@ class Video(IsDescription):
     frames = Float32Col(shape=(29, 112, 112))
     yaw = Float32Col()
     file = StringCol(32)
+    word = StringCol(32)
 
 
 def preprocess(path, output, num_words, workers=None):
@@ -113,18 +119,18 @@ def preprocess(path, output, num_words, workers=None):
     if os.path.exists(output_path):
         os.remove(output_path)
 
-    labels = None
+    words = None
     for mode in ['train', 'val', 'test']:
         print("Generating %s data" % mode)
         dataset = LRWDataset(directory=path, num_words=num_words, mode=mode)
-        if labels != None:
-            assert labels == dataset.labels
-        labels = dataset.labels
+        if words != None:
+            assert words == dataset.words
+        words = dataset.words
         preprocess_hdf5(
             dataset=dataset,
             output_path=output_path,
             table=mode,
-            workers=workers
+            workers=workers,
         )
 
 

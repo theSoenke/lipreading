@@ -17,7 +17,7 @@ from src.data.lrw import LRWDataset
 from src.models.model import Model
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--data', required=True)
+parser.add_argument('--hdf5', required=True)
 parser.add_argument("--checkpoint_dir", type=str, default='data/models')
 parser.add_argument("--checkpoint", type=str)
 parser.add_argument("--tensorboard_logdir", type=str, default='data/tensorboard')
@@ -35,9 +35,9 @@ epochs = args.epochs
 torch.manual_seed(42)
 np.random.seed(42)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-train_data = HDF5Dataset(path=args.data)
+train_data = HDF5Dataset(path=args.hdf5)
 train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size, pin_memory=True)
-val_loader = DataLoader(HDF5Dataset(path=args.data, table='val'), shuffle=False, batch_size=batch_size * 2)
+val_loader = DataLoader(HDF5Dataset(path=args.hdf5, table='val'), shuffle=False, batch_size=batch_size * 2)
 samples = len(train_data)
 
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -127,7 +127,7 @@ def validate(epoch):
 def accuracy(output, labels):
     sums = torch.sum(output, dim=1)
     _, predicted = sums.max(dim=1)
-    correct = (predicted == labels.squeeze(1)).sum().item()
+    correct = (predicted == labels.squeeze(dim=1)).sum().item()
     return correct / output.shape[0]
 
 
