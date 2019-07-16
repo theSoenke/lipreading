@@ -42,7 +42,8 @@ samples = len(train_data)
 
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
 writer = SummaryWriter(log_dir=os.path.join(args.tensorboard_logdir, current_time))
-model = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretrained=args.pretrained).to(device)
+pretrained = False if args.checkpoint != None else args.pretrained
+model = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretrained=pretrained).to(device)
 wandb.init(project="lipreading")
 wandb.config.update(args)
 wandb.watch(model)
