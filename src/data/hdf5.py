@@ -1,15 +1,19 @@
 import numpy as np
+import tables
 import torch
 from tables import open_file
 from torch.utils.data import Dataset
 
 
 class HDF5Dataset(Dataset):
-    def __init__(self, path, table='train', columns=['frames', 'label']):
+    def __init__(self, path, table='train', columns=['frames', 'label'], query=None):
         self.path = path
         self.columns = columns
         h5file = open_file(path, mode="r")
-        self.table = h5file.root[table]
+        if query == None:
+            self.table = h5file.root[table]
+        else:
+            self.table = h5file.root[table].read_where(query)
 
     def __len__(self):
         return len(self.table)

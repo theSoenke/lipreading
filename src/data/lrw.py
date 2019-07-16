@@ -68,18 +68,14 @@ class LRWDataset(Dataset):
 
     def build_tensor(self, frames):
         temporalVolume = torch.FloatTensor(1, 29, 112, 112)
-        croptransform = transforms.CenterCrop((112, 112))
-
         for i in range(0, 29):
             result = transforms.Compose([
                 transforms.ToPILImage(),
-                transforms.CenterCrop((122, 122)),
-                croptransform,
+                transforms.CenterCrop((112, 112)),
                 transforms.Grayscale(num_output_channels=1),
                 transforms.ToTensor(),
                 transforms.Normalize([0.4161, ], [0.1688, ]),
             ])(frames[i])
-
             temporalVolume[0][i] = result
 
         return temporalVolume
@@ -132,6 +128,7 @@ def preprocess(path, output, num_words, workers=None):
             table=mode,
             workers=workers,
         )
+    print("Saved preprocessed file: %s" % output_path)
 
 
 def preprocess_hdf5(dataset, output_path, table, workers=0):

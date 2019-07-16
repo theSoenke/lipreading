@@ -101,6 +101,7 @@ def preprocess(path, output, workers=None):
         table='train',
         workers=workers,
     )
+    print("Saved preprocessed file: %s" % output_path)
 
 
 def preprocess_hdf5(dataset, output_path, table, workers):

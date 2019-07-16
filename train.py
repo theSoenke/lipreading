@@ -35,9 +35,10 @@ epochs = args.epochs
 torch.manual_seed(42)
 np.random.seed(42)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-train_data = HDF5Dataset(path=args.hdf5)
+query = None
+train_data = HDF5Dataset(path=args.hdf5, query=query)
 train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size, pin_memory=True)
-val_loader = DataLoader(HDF5Dataset(path=args.hdf5, table='val'), shuffle=False, batch_size=batch_size * 2)
+val_loader = DataLoader(HDF5Dataset(path=args.hdf5, table='val', query=query), shuffle=False, batch_size=batch_size * 2)
 samples = len(train_data)
 
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
