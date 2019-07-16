@@ -148,7 +148,7 @@ for epoch in range(epochs):
     if val_acc > best_val_acc:
         best_val_acc = val_acc
         wandb.log({"best_val_acc": best_val_acc})
-        checkpoint_name = "checkpoint_val_acc_%.5f_%s.pkl" % (val_acc, current_time)
+        checkpoint_name = "checkpoint_%d_val_acc_%.5f_%s.pkl" % (epoch, val_acc, current_time)
         checkpoint_path = os.path.join(args.checkpoint_dir, checkpoint_name)
         create_checkpoint(model, optimizer, checkpoint_path)
         print("Saved checkpoint: %s" % checkpoint_path)
