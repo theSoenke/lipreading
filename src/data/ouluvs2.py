@@ -4,6 +4,7 @@ import cv2
 import psutil
 import torch
 import torchvision.transforms.functional as F
+from face_alignment.detection.sfd.sfd_detector import SFDDetector
 from PIL import Image
 from tables import Float32Col, Int32Col, IsDescription, StringCol, open_file
 from torch.utils.data import DataLoader, Dataset
@@ -17,6 +18,7 @@ class OuluVS2Dataset(Dataset):
     def __init__(self, directory):
         self.file_list = self.build_file_list(directory)
         self.head_pose = HeadPose()
+        self.face_detector = SFDDetector(device='cuda')
 
     def build_file_list(self, directory):
         videos = []
@@ -33,6 +35,14 @@ class OuluVS2Dataset(Dataset):
         _, frame = cap.read()
         image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         try:
+            bounds = self.face_detector.detect_from_image(frame)
+            if len(bounds) == 0:
+                print("File: %s, Error: Could not detect pose" % (file))
+            else:
+                padding = 50
+                width, height = image.size
+                x1, y1, x2, y2, _ = bounds[0]
+                image = image.crop((x1 - padding, y1 - padding, x2 + padding, y2 + padding))
             angles = self.head_pose.predict(image)
             if angles == None:
                 print("File: %s, Error: Could not detect pose" % (file))
