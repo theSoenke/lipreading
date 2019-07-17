@@ -12,6 +12,7 @@ from torchvision import transforms
 from tqdm import tqdm
 
 from src.data.preprocess.pose_hopenet import HeadPose
+from src.data.transforms import StatefulRandomHorizontalFlip
 
 
 def build_word_list(directory, num_words):
@@ -24,8 +25,9 @@ def build_word_list(directory, num_words):
 
 
 class LRWDataset(Dataset):
-    def __init__(self, directory, num_words=500, mode="train"):
+    def __init__(self, directory, num_words=500, mode="train", augmentation=False):
         self.num_words = num_words
+        self.augmentation = augmentation if mode == 'train' else False
         self.file_list, self.words = self.build_file_list(directory, mode)
         self.head_pose = HeadPose()
 
@@ -68,10 +70,18 @@ class LRWDataset(Dataset):
 
     def build_tensor(self, frames):
         temporalVolume = torch.FloatTensor(1, 29, 112, 112)
+        if(self.augmentation):
+            augmentations = transforms.Compose([
+                StatefulRandomHorizontalFlip(0.5),
+            ])
+        else:
+            augmentations = transforms.Compose([])
+
         for i in range(0, 29):
             result = transforms.Compose([
                 transforms.ToPILImage(),
                 transforms.CenterCrop((112, 112)),
+                augmentations,
                 transforms.Grayscale(num_output_channels=1),
                 transforms.ToTensor(),
                 transforms.Normalize([0.4161, ], [0.1688, ]),
@@ -106,19 +116,22 @@ class Video(IsDescription):
     word = StringCol(32)
 
 
-def preprocess(path, output, num_words, workers=None):
+def preprocess(path, output, num_words, augmentation=False, workers=None):
     workers = psutil.cpu_count() if workers == None else workers
     if os.path.exists(output) == False:
         os.makedirs(output)
 
-    output_path = "%s/lrw_%d.h5" % (output, num_words)
+    if augmentation:
+        output_path = "%s/lrw_aug_%d.h5" % (output, num_words)
+    else:
+        output_path = "%s/lrw_%d.h5" % (output, num_words)
     if os.path.exists(output_path):
         os.remove(output_path)
 
     words = None
     for mode in ['train', 'val', 'test']:
         print("Generating %s data" % mode)
-        dataset = LRWDataset(directory=path, num_words=num_words, mode=mode)
+        dataset = LRWDataset(directory=path, num_words=num_words, mode=mode, augmentation=augmentation)
         if words != None:
             assert words == dataset.words
         words = dataset.words

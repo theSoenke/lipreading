@@ -10,9 +10,10 @@ if __name__ == "__main__":
     parser.add_argument('--output', default='data/preprocessed')
     parser.add_argument('--words', type=int, default=10)
     parser.add_argument('--workers', type=int, default=0)
+    parser.add_argument('--augmentation', help='Augment data', action='store_true')
     args = parser.parse_args()
 
     if args.set == "lrw":
-        process_lrw(args.data, args.output, num_words=args.words, workers=args.workers)
+        process_lrw(args.data, args.output, num_words=args.words, workers=args.workers, augmentation=args.augmentation)
     elif args.set == "ouluvs2":
         process_ouluvs2(args.data, args.output, workers=args.workers)
