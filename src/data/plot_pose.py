@@ -22,11 +22,21 @@ def plot_pose(path):
     h5file = tables.open_file(path, mode='r')
     column = 'yaw'
     rows = h5file.root['train'].where('%s < 180' % column)
+    samples = [row[column] for row in rows]
+    angles = np.array(samples)
+    plt.hist(angles, bins=180)
+    plt.xlabel(column)
+    plt.show()
+
+
+def plot_ouluvs2(path):
+    h5file = tables.open_file(path, mode='r')
+    column = 'yaw'
+    rows = h5file.root['train'].where('%s < 180' % column)
     samples = [[abs(row[column]), row['view'], row['file']] for row in rows]
     angles = np.array([[sample[0], sample[1]] for sample in samples])
     files = [sample[2] for sample in samples]
     accuracy(angles[:, 0], angles[:, 1], files)
-
     plt.hist(angles[:, 0], bins=180)
     plt.xlabel(column)
     plt.show()
