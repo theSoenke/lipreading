@@ -2,6 +2,7 @@
 /data/tensorboard
 /data/dlib
 /data/hopenet
+/data/checkpoints
 __pycache__
 *.h5
 /wandb

@@ -18,7 +18,7 @@ from src.models.model import Model
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--hdf5', required=True)
-parser.add_argument("--checkpoint_dir", type=str, default='data/models')
+parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints')
 parser.add_argument("--checkpoint", type=str)
 parser.add_argument("--tensorboard_logdir", type=str, default='data/tensorboard')
 parser.add_argument("--epochs", type=int, default=50)
@@ -40,6 +40,7 @@ train_data = HDF5Dataset(path=args.hdf5, query=query)
 train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size, pin_memory=True)
 val_loader = DataLoader(HDF5Dataset(path=args.hdf5, table='val', query=query), shuffle=False, batch_size=batch_size * 2)
 samples = len(train_data)
+os.makedirs(args.checkpoint_dir, exist_ok=True)
 
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
 writer = SummaryWriter(log_dir=os.path.join(args.tensorboard_logdir, current_time))
