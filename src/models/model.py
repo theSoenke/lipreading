@@ -28,7 +28,7 @@ class Model(nn.Module):
             nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
         )
         self.resnet = ResNetModel(layers=resnet_layers, pretrained=resnet_pretrained)
-        self.lstm = self.lstm = nn.LSTM(
+        self.lstm = nn.LSTM(
             input_size=256,
             hidden_size=256,
             num_layers=2,

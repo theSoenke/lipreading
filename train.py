@@ -24,6 +24,7 @@ parser.add_argument("--tensorboard_logdir", type=str, default='data/tensorboard'
 parser.add_argument("--epochs", type=int, default=50)
 parser.add_argument("--batch_size", type=int, default=24)
 parser.add_argument("--lr", type=float, default=1e-4)
+parser.add_argument("--weight_decay", type=float, default=1e-5)
 parser.add_argument("--words", type=int, default=10)
 parser.add_argument("--resnet", type=int, default=18)
 parser.add_argument("--pretrained", default=True, type=lambda x: (str(x).lower() == 'true'))
@@ -34,6 +35,8 @@ epochs = args.epochs
 
 torch.manual_seed(42)
 np.random.seed(42)
+# torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 query = None
 train_data = HDF5Dataset(path=args.hdf5, query=query)
@@ -49,7 +52,7 @@ model = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretrai
 wandb.init(project="lipreading")
 wandb.config.update(args)
 wandb.watch(model)
-optimizer = optim.Adam(model.parameters(), lr=args.lr)
+optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 if args.checkpoint != None:
     load_checkpoint(model, optimizer, args.checkpoint)
 
@@ -87,17 +90,15 @@ def train(epoch, start_time):
             samples_processed = (epoch * samples) + epoch_samples
             total_samples = epochs * samples
             remaining_time = (total_samples - samples_processed) * (duration / samples_processed)
-            print("Epoch: %d, %d/%d samples, Loss: %.2f, Time per sample: %.2fms, Load sample: %.2fms, Train acc: %.5f, Elapsed time: %s, Remaining time: %s" % (
-                epoch + 1,
-                epoch_samples,
-                samples,
-                loss,
-                (np.mean(batch_times) * 1000) / batch_size,
-                (np.mean(load_times) * 1000) / batch_size,
-                np.mean(accuracies),
-                time.strftime("%H:%M:%S", time.gmtime(duration)),
-                time.strftime("%H:%M:%S", time.gmtime(remaining_time)),
-            ))
+            print(
+                f"Epoch: [{epoch + 1}/{epochs}], "
+                + f"{epoch_samples}/{samples} samples, "
+                + f"Loss: {loss:.2f}ms, "
+                + f"Time per sample: {((np.mean(batch_times) * 1000) / batch_size):.2f}ms, "
+                + f"Load sample: {((np.mean(load_times) * 1000) / batch_size):.2f}ms, "
+                + f"Train acc: {np.mean(accuracies):.5f}, "
+                + f"Elapsed time: {time.strftime('%H:%M:%S', time.gmtime(duration))}, "
+                + f"Remaining time: {time.strftime('%H:%M:%S', time.gmtime(remaining_time))}")
             batch_times, load_times, accuracies = np.array([]), np.array([]), np.array([])
 
 
@@ -122,7 +123,7 @@ def validate(epoch):
     writer.add_scalar("val_loss", avg_loss, global_step=global_step)
     writer.add_scalar("val_acc", avg_acc, global_step=global_step)
     wandb.log({"val_acc": avg_acc, "val_loss": avg_loss})
-    print("val_loss: %.3f, val_acc %.5f" % (avg_loss, avg_acc))
+    print(f"val_loss: {avg_loss:.3f}, val_acc {avg_acc:.5f}")
 
     return avg_acc
 
@@ -142,7 +143,7 @@ def accuracy_topk(outputs, labels, k=10):
 
 
 trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-print("Trainable parameters: %d" % trainable_params)
+print(f"Trainable parameters: {trainable_params}")
 start_time = time.time()
 best_val_acc = 0
 for epoch in range(epochs):
@@ -154,7 +155,7 @@ for epoch in range(epochs):
         checkpoint_name = "checkpoint_%d_val_acc_%.5f_%s.pkl" % (epoch, val_acc, current_time)
         checkpoint_path = os.path.join(args.checkpoint_dir, checkpoint_name)
         create_checkpoint(checkpoint_path, model)
-        print("Saved checkpoint: %s" % checkpoint_path)
+        print(f"Saved checkpoint: {checkpoint_path}")
 
 wandb.config.parameters = trainable_params
 wandb.save(checkpoint_path)
