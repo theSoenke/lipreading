@@ -1,6 +1,6 @@
 from torch import nn
 
-from src.models.resnet import ResNetModel
+from src.models.fixup_resnet import ResNetModel
 
 
 class NLLSequenceLoss(nn.Module):
