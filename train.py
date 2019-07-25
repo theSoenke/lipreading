@@ -28,10 +28,12 @@ parser.add_argument("--weight_decay", type=float, default=1e-5)
 parser.add_argument("--words", type=int, default=10)
 parser.add_argument("--resnet", type=int, default=18)
 parser.add_argument("--pretrained", default=True, type=lambda x: (str(x).lower() == 'true'))
+parser.add_argument("--log_interval", type=int, default=50)
 args = parser.parse_args()
 
 batch_size = args.batch_size
 epochs = args.epochs
+log_interval = args.log_interval
 
 torch.manual_seed(42)
 np.random.seed(42)
@@ -62,6 +64,7 @@ def train(epoch, start_time):
     criterion = model.loss
     batch_times, load_times, accuracies = np.array([]), np.array([]), np.array([])
     loader = iter(train_loader)
+    samples_processed = 0
     for step in range(1, len(train_loader) + 1):
         batch_start = time.time()
         batch = next(loader)
@@ -76,27 +79,27 @@ def train(epoch, start_time):
         optimizer.step()
         optimizer.zero_grad()
 
-        batch_times = np.append(batch_times, time.time() - batch_start)
         acc = accuracy(output, labels)
-        # acc_top = accuracy_topk(output, labels, k=5)
         accuracies = np.append(accuracies, acc)
+
+        batch_times = np.append(batch_times, time.time() - batch_start)
+        samples_processed += len(labels)
         global_step = ((epoch * samples) // batch_size) + step
         writer.add_scalar("train_loss", loss, global_step=global_step)
         writer.add_scalar("train_acc", acc, global_step=global_step)
         wandb.log({"train_acc": acc, "train_loss": loss})
-        if step % 50 == 0:
+        if step % log_interval == 0:
             duration = time.time() - start_time
-            epoch_samples = batch_size * step
-            samples_processed = (epoch * samples) + epoch_samples
+            total_samples_processed = (epoch * samples) + samples_processed
             total_samples = epochs * samples
-            remaining_time = (total_samples - samples_processed) * (duration / samples_processed)
+            remaining_time = (total_samples - total_samples_processed) * (duration / total_samples_processed)
             print(
                 f"Epoch: [{epoch + 1}/{epochs}], "
-                + f"{epoch_samples}/{samples} samples, "
+                + f"{samples_processed}/{samples} samples, "
                 + f"Loss: {loss:.2f}ms, "
-                + f"Time per sample: {((np.mean(batch_times) * 1000) / batch_size):.2f}ms, "
-                + f"Load sample: {((np.mean(load_times) * 1000) / batch_size):.2f}ms, "
-                + f"Train acc: {np.mean(accuracies):.5f}, "
+                + f"Time per sample: {((np.mean(batch_times) * 1000) / batch_size) / log_interval:.2f}ms, "
+                + f"Load sample: {((np.mean(load_times) * 1000) / batch_size) / log_interval:.2f}ms, "
+                + f"Train acc: {np.mean(accuracies)}, "
                 + f"Elapsed time: {time.strftime('%H:%M:%S', time.gmtime(duration))}, "
                 + f"Remaining time: {time.strftime('%H:%M:%S', time.gmtime(remaining_time))}")
             batch_times, load_times, accuracies = np.array([]), np.array([]), np.array([])
