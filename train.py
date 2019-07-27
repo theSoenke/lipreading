@@ -14,6 +14,7 @@ import wandb
 from src.checkpoint import create_checkpoint, load_checkpoint
 from src.data.hdf5 import HDF5Dataset
 from src.data.lrw import LRWDataset
+from src.data.ouluvs2 import OuluVS2Dataset
 from src.models.model import Model
 
 parser = argparse.ArgumentParser()
@@ -40,10 +41,10 @@ np.random.seed(42)
 # torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-query = "(yaw > 30)"
-train_data = HDF5Dataset(path=args.hdf5, query=query)
+query = None
+train_data = OuluVS2Dataset(directory=args.hdf5)
 train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size, pin_memory=True)
-val_loader = DataLoader(HDF5Dataset(path=args.hdf5, table='val', query=query), shuffle=False, batch_size=batch_size * 2)
+# val_loader = DataLoader(HDF5Dataset(path=args.hdf5, table='val', query=query), shuffle=False, batch_size=batch_size * 2)
 samples = len(train_data)
 os.makedirs(args.checkpoint_dir, exist_ok=True)
 
@@ -61,7 +62,8 @@ if args.checkpoint != None:
 
 def train(epoch, start_time):
     model.train()
-    criterion = model.loss
+    # criterion = model.loss
+    criterion = nn.CTCLoss()
     batch_times, load_times, accuracies = np.array([]), np.array([]), np.array([])
     loader = iter(train_loader)
     samples_processed = 0
@@ -71,10 +73,14 @@ def train(epoch, start_time):
         load_times = np.append(load_times, time.time() - batch_start)
 
         frames = batch['frames'].to(device)
-        labels = batch['label'].to(device)
+        video_length = batch['length']
+        y_lengths = torch.randint(10, 12, (batch_size,), dtype=torch.long)
+        x_lengths = torch.full((len(frames),), 10, dtype=torch.long)
+        labels = batch['utterance'].to(device)
 
+        print(labels)
         output = model(frames)
-        loss = criterion(output, labels.squeeze(1))
+        loss = criterion(output, labels, x_lengths, y_lengths)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -151,14 +157,14 @@ start_time = time.time()
 best_val_acc = 0
 for epoch in range(epochs):
     train(epoch, start_time)
-    val_acc = validate(epoch)
-    if val_acc > best_val_acc:
-        best_val_acc = val_acc
-        wandb.log({"best_val_acc": best_val_acc})
-        checkpoint_name = "checkpoint_%d_val_acc_%.5f_%s.pkl" % (epoch, val_acc, current_time)
-        checkpoint_path = os.path.join(args.checkpoint_dir, checkpoint_name)
-        create_checkpoint(checkpoint_path, model)
-        print(f"Saved checkpoint: {checkpoint_path}")
+    # val_acc = validate(epoch)
+    # if val_acc > best_val_acc:
+    #     best_val_acc = val_acc
+    #     wandb.log({"best_val_acc": best_val_acc})
+    #     checkpoint_name = "checkpoint_%d_val_acc_%.5f_%s.pkl" % (epoch, val_acc, current_time)
+    #     checkpoint_path = os.path.join(args.checkpoint_dir, checkpoint_name)
+    #     create_checkpoint(checkpoint_path, model)
+    #     print(f"Saved checkpoint: {checkpoint_path}")
 
 wandb.config.parameters = trainable_params
 wandb.save(checkpoint_path)

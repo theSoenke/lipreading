@@ -1,76 +1,89 @@
 import os
+from string import ascii_lowercase
 
 import cv2
 import psutil
 import torch
 import torchvision.transforms.functional as F
-from face_alignment.detection.sfd.sfd_detector import SFDDetector
 from PIL import Image
 from tables import Float32Col, Int32Col, IsDescription, StringCol, open_file
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from tqdm import tqdm
 
-from src.data.preprocess.pose_hopenet import HeadPose
-
 
 class OuluVS2Dataset(Dataset):
-    def __init__(self, directory):
-        self.file_list = self.build_file_list(directory)
-        self.head_pose = HeadPose()
-        self.face_detector = SFDDetector(device='cuda')
+    def __init__(self, directory, mode='train'):
+        self.directory = directory
+        self.file_list = self.build_file_list()
+        self.character_map = self.build_character_map()
 
-    def build_file_list(self, directory):
+    def build_character_map(self):
+        vocab_map = {' ': 0}
+        for i, char in enumerate(ascii_lowercase):
+            vocab_map[char] = i + 1
+        return vocab_map
+
+    def sentence_chars(self, sentence):
+        mapping = []
+        for char in sentence:
+            mapping.append(self.character_map[char])
+        return mapping
+
+    def build_file_list(self):
         videos = []
-        files = os.listdir(directory)
-        for file in files:
-            if file.endswith("mp4"):
-                path = directory + "/{}".format(file)
-                video = (path, file)
-                videos.append(video)
+        speakers = os.listdir(self.directory)
+        for speaker in speakers:
+            speaker_dir = os.path.join(self.directory, speaker)
+            views = os.listdir(speaker_dir)
+            for view in views:
+                view_dir = os.path.join(speaker_dir, view)
+                files = os.listdir(view_dir)
+                for file in files:
+                    videos.append(file)
         return videos
 
     def load_video(self, file):
         cap = cv2.VideoCapture(file)
-        _, frame = cap.read()
-        image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        try:
-            bounds = self.face_detector.detect_from_image(frame)
-            if len(bounds) == 0:
-                print("File: %s, Error: Could not detect pose" % (file))
-            else:
-                padding = 50
-                width, height = image.size
-                x1, y1, x2, y2, _ = bounds[0]
-                image = image.crop((x1 - padding, y1 - padding, x2 + padding, y2 + padding))
-            angles = self.head_pose.predict(image)
-            if angles == None:
-                print("File: %s, Error: Could not detect pose" % (file))
-                yaw = None
-            else:
-                yaw = angles['yaw']
-        except Exception as e:
-            print("File: %s, Error: %s" % (file, e))
-            yaw = None
+        frames = []
 
-        return yaw
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            frames.append(image)
+
+        return self.build_tensor(frames)
+
+    def build_tensor(self, frames):
+        temporalVolume = torch.FloatTensor(1, 29, 112, 112)
+        for i in range(len(frames)):
+            result = transforms.Compose([
+                transforms.ToPILImage(),
+                transforms.Grayscale(num_output_channels=1),
+                transforms.ToTensor(),
+                transforms.Normalize([0.4161, ], [0.1688, ]),
+            ])(frames[i])
+            temporalVolume[0][i] = result
+
+        return temporalVolume
 
     def __len__(self):
         return len(self.file_list)
 
     def __getitem__(self, idx):
-        path, filename = self.file_list[idx]
-        yaw = self.load_video(path)
+        path = self.file_list[idx]
+        frames, sentence = self.load_video(path)
         split = path.split("/")[-1][:-4].split("_")
         speaker, view, utterance = [int(x[1:]) for x in split]
-        if yaw == None:
-            yaw = 500
         view = [0, 30, 45, 60, 90][view-1]
         sample = {
-            'yaw': yaw,
+            'frames': frames,
+            'length': len(frames),
+            'chars': self.sentence_chars(sentence),
             "view": view,
-            "speaker": speaker,
-            "file": filename,
             "utterance": utterance,
         }
         return sample
@@ -112,7 +125,7 @@ def preprocess_hdf5(dataset, output_path, table, workers):
 
     with tqdm(total=len(dataset)) as progress:
         for batch in data_loader:
-            for i in range(len(batch['yaw'])):
+            for i in range(len(batch['frames'])):
                 for column in batch:
                     row[column] = batch[column][i]
                 row.append()
