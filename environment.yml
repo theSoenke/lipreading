@@ -18,3 +18,4 @@ dependencies:
       - dlib==19.17.0
       - face_alignment==1.0.0
       - wandb
+      - pillow-simd
