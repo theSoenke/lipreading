@@ -32,9 +32,10 @@ class OuluVS2Dataset(Dataset):
 
     def build_file_list(self):
         videos = []
-        speakers = os.listdir(self.directory)
+        video_dir = os.path.join(self.directory, 'cropped_mouth_mp4_phrase')
+        speakers = os.listdir(video_dir)
         for speaker in speakers:
-            speaker_dir = os.path.join(self.directory, speaker)
+            speaker_dir = os.path.join(video_dir, speaker)
             views = os.listdir(speaker_dir)
             for view in views:
                 view_dir = os.path.join(speaker_dir, view)

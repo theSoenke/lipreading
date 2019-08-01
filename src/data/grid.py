@@ -1,10 +1,15 @@
 import glob
 import os
+from string import ascii_lowercase
 
+import cv2
 import torch
+from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
+from src.data.preprocess.face import FacePredictor
+from src.data.preprocess.video import load_mouth_images
 
 
 class GridDataset(Dataset):
@@ -17,35 +22,82 @@ class GridDataset(Dataset):
         else:
             self.speakers = (29, 34)
         self.file_list = self.build_file_list()
+        self.character_map = self.build_character_map()
+        self.predictor = FacePredictor()
 
     def __len__(self):
         return len(self.file_list)
 
     def __getitem__(self, idx):
-        file = self.file_list[idx]
-        frames = load_video(file)
-        mouth_input = []
+        file, align = self.file_list[idx]
+        frames = load_mouth_images(self.predictor, file)
+        chars = self.load_characters(align)
 
-        width = 40
-        height = 20
-        temporalInput = torch.Tensor(1, len(frames), width, height)
+        width = 60
+        height = 40
+        max_frames = 75
+        frames = torch.zeros(1, max_frames, width, height)
         for i, frame in enumerate(frames):
             result = transforms.Compose([
                 transforms.ToPILImage(),
+                transforms.Grayscale(num_output_channels=1),
                 transforms.ToTensor(),
                 transforms.Normalize([0.4161, ], [0.1688, ]),
             ])(frame)
+            frames[0][i] = result
 
-            temporalInput[0][i] = result
-        return {"input": temporalInput, "label": torch.LongTensor([1])}
+        return {
+            "frames": frames,
+            "chars": chars,
+            "length": len(frames),
+        }
+
+    def build_character_map(self):
+        vocab_map = {' ': 0}
+        for i, char in enumerate(ascii_lowercase):
+            vocab_map[char] = i + 1
+        return vocab_map
 
     def build_file_list(self):
-        pattern = self.path + "/**/*.mpg"
+        pattern = self.path + "/videos/**/*.mpg"
         all_files = glob.glob(pattern)
         files = []
         for file in all_files:
             speaker = int(file.split("/")[-2][1:])
+            video_name = file.split("/")[-1][:-4]
             if speaker >= self.speakers[0] and speaker < self.speakers[1]:
-                files.append(file)
+                align = os.path.join(self.path, 'aligns', "s" + str(speaker), video_name + '.align')
+                sample = (file, align)
+                files.append(sample)
 
         return files
+
+    def load_characters(self, align):
+        file = open(align, "r")
+        lines = file.readlines()
+        chars = []
+        for line in lines:
+            word = line.split(' ')[2].rstrip()
+            if word == 'sil':
+                continue
+            for char in word:
+                chars.append(self.character_map[char])
+            chars.append(self.character_map[' '])
+
+        chars = chars[:-1]
+        file.close()
+        return torch.LongTensor(chars)
+
+    def load_video(self, file):
+        cap = cv2.VideoCapture(file)
+        frames = []
+
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            frames.append(image)
+
+        return frames

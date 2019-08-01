@@ -14,7 +14,7 @@ import wandb
 from src.checkpoint import create_checkpoint, load_checkpoint
 from src.data.hdf5 import HDF5Dataset
 from src.data.lrw import LRWDataset
-from src.data.ouluvs2 import OuluVS2Dataset
+from src.data.grid import GridDataset
 from src.models.model import Model
 
 parser = argparse.ArgumentParser()
@@ -42,8 +42,8 @@ np.random.seed(42)
 torch.backends.cudnn.benchmark = False
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 query = None
-train_data = OuluVS2Dataset(directory=args.hdf5)
-train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size, pin_memory=True)
+train_data = GridDataset(path=args.hdf5)
+train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size, pin_memory=True, num_workers=4)
 # val_loader = DataLoader(HDF5Dataset(path=args.hdf5, table='val', query=query), shuffle=False, batch_size=batch_size * 2)
 samples = len(train_data)
 os.makedirs(args.checkpoint_dir, exist_ok=True)
@@ -76,24 +76,23 @@ def train(epoch, start_time):
         video_length = batch['length']
         y_lengths = torch.randint(10, 12, (batch_size,), dtype=torch.long)
         x_lengths = torch.full((len(frames),), 10, dtype=torch.long)
-        labels = batch['utterance'].to(device)
+        chars = batch['chars'].to(device)
 
-        print(labels)
         output = model(frames)
-        loss = criterion(output, labels, x_lengths, y_lengths)
+        loss = criterion(output, chars, video_length, y_lengths)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
 
-        acc = accuracy(output, labels)
-        accuracies = np.append(accuracies, acc)
+        # acc = accuracy(output, labels)
+        # accuracies = np.append(accuracies, acc)
 
         batch_times = np.append(batch_times, time.time() - batch_start)
-        samples_processed += len(labels)
+        samples_processed += len(chars)
         global_step = ((epoch * samples) // batch_size) + step
         writer.add_scalar("train_loss", loss, global_step=global_step)
-        writer.add_scalar("train_acc", acc, global_step=global_step)
-        wandb.log({"train_acc": acc, "train_loss": loss})
+        # writer.add_scalar("train_acc", acc, global_step=global_step)
+        # wandb.log({"train_acc": acc, "train_loss": loss})
         if step % log_interval == 0:
             duration = time.time() - start_time
             total_samples_processed = (epoch * samples) + samples_processed
