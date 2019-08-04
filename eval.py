@@ -58,7 +58,8 @@ if __name__ == "__main__":
     torch.manual_seed(42)
     np.random.seed(42)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    dataset = HDF5Dataset(path=args.hdf5, table=args.set, columns=['frames', 'label', 'file'])
+    query = None # '(yaw > 30)'
+    dataset = HDF5Dataset(path=args.hdf5, table=args.set, query=query, columns=['frames', 'label', 'file'])
     dataloader = DataLoader(dataset, shuffle=False, batch_size=args.batch_size)
     model = Model(num_classes=args.words, resnet_layers=args.resnet, resnet_pretrained=False).to(device)
     checkpoint = torch.load(args.checkpoint)

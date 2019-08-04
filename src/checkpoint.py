@@ -1,11 +1,12 @@
 import torch
 
 
-def load_checkpoint(model, optimizer, path):
+def load_checkpoint(path, model, optimizer=None):
     print("Loading checkpoint: %s" % path)
     checkpoint = torch.load(path)
     model.load_state_dict(checkpoint['state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    if optimizer != None:
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
 
 def create_checkpoint(path, model, optimizer=None):

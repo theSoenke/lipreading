@@ -40,7 +40,7 @@ np.random.seed(42)
 # torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-query = None
+query = "(yaw > 30)"
 train_data = HDF5Dataset(path=args.hdf5, query=query)
 train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size, pin_memory=True)
 val_loader = DataLoader(HDF5Dataset(path=args.hdf5, table='val', query=query), shuffle=False, batch_size=batch_size * 2)
@@ -56,7 +56,7 @@ wandb.config.update(args)
 wandb.watch(model)
 optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 if args.checkpoint != None:
-    load_checkpoint(model, optimizer, args.checkpoint)
+    load_checkpoint(args.checkpoint, model, optimizer=None)
 
 
 def train(epoch, start_time):
@@ -99,7 +99,7 @@ def train(epoch, start_time):
                 + f"Loss: {loss:.2f}ms, "
                 + f"Time per sample: {((np.mean(batch_times) * 1000) / batch_size) / log_interval:.2f}ms, "
                 + f"Load sample: {((np.mean(load_times) * 1000) / batch_size) / log_interval:.2f}ms, "
-                + f"Train acc: {np.mean(accuracies)}, "
+                + f"Train acc: {np.mean(accuracies):.4f}, "
                 + f"Elapsed time: {time.strftime('%H:%M:%S', time.gmtime(duration))}, "
                 + f"Remaining time: {time.strftime('%H:%M:%S', time.gmtime(remaining_time))}")
             batch_times, load_times, accuracies = np.array([]), np.array([]), np.array([])
