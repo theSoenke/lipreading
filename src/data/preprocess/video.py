@@ -20,9 +20,6 @@ def load_video(video_path):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         frames.append(frame)
 
-    cap.release()
-    cv2.destroyAllWindows()
-
     return frames
 
 

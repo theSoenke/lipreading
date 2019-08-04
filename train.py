@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import os
+import pdb
 import time
 from datetime import datetime
 
@@ -12,9 +13,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 import wandb
 from src.checkpoint import create_checkpoint, load_checkpoint
+from src.data.grid import GridDataset
 from src.data.hdf5 import HDF5Dataset
 from src.data.lrw import LRWDataset
-from src.data.grid import GridDataset
 from src.models.model import Model
 
 parser = argparse.ArgumentParser()
@@ -73,13 +74,19 @@ def train(epoch, start_time):
         load_times = np.append(load_times, time.time() - batch_start)
 
         frames = batch['frames'].to(device)
-        video_length = batch['length']
-        y_lengths = torch.randint(10, 12, (batch_size,), dtype=torch.long)
-        x_lengths = torch.full((len(frames),), 10, dtype=torch.long)
         chars = batch['chars'].to(device)
+        # video_length = batch['length']
+
+        min_target_length = 10
+        input_lengths = torch.full(size=(batch_size,), fill_value=2, dtype=torch.long)
+        target_lengths = torch.randint(low=min_target_length, high=14, size=(batch_size,), dtype=torch.long)
+
+        print(input_lengths)
 
         output = model(frames)
-        loss = criterion(output, chars, video_length, y_lengths)
+        pdb.set_trace()
+        print(output.shape)
+        loss = criterion(output, chars, input_lengths, target_lengths)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()

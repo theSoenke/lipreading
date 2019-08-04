@@ -9,7 +9,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 from src.data.preprocess.face import FacePredictor
-from src.data.preprocess.video import load_mouth_images
+from src.data.preprocess.video import load_mouth_images, load_video
 
 
 class GridDataset(Dataset):
@@ -30,16 +30,18 @@ class GridDataset(Dataset):
 
     def __getitem__(self, idx):
         file, align = self.file_list[idx]
-        frames = load_mouth_images(self.predictor, file)
+        # frames = load_mouth_images(self.predictor, file)
+        frames = load_video(file)
         chars = self.load_characters(align)
 
-        width = 60
-        height = 40
+        width = 112 # 60
+        height = 112 # 40
         max_frames = 75
         frames = torch.zeros(1, max_frames, width, height)
         for i, frame in enumerate(frames):
             result = transforms.Compose([
                 transforms.ToPILImage(),
+                transforms.CenterCrop((112, 112)),
                 transforms.Grayscale(num_output_channels=1),
                 transforms.ToTensor(),
                 transforms.Normalize([0.4161, ], [0.1688, ]),
@@ -49,7 +51,8 @@ class GridDataset(Dataset):
         return {
             "frames": frames,
             "chars": chars,
-            "length": len(frames),
+            "input_lengths": max_frames,
+            "output_lengths": 1,
         }
 
     def build_character_map(self):

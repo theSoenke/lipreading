@@ -1,6 +1,7 @@
 from torch import nn
 
 from src.models.resnet import ResNetModel
+from src.models.time_batch_wrapper import TimeBatchWrapper
 
 
 class NLLSequenceLoss(nn.Module):
@@ -38,11 +39,16 @@ class Model(nn.Module):
         self.fc = nn.Linear(256 * 2, num_classes)
         self.softmax = nn.LogSoftmax(dim=2)
         self.loss = NLLSequenceLoss()
+        # self.pred = nn.Sequential(
+        #     TimeBatchWrapper(mod=nn.Linear(256 * 2, 26 + 1))
+        #     # T B V'
+        # )
 
     def forward(self, x):
         x = self.frontend(x)
         x = self.resnet(x)
         x, _ = self.lstm(x)
+        # x = self.pred(x)
         x = self.fc(x)
         x = self.softmax(x)
         return x
