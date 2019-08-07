@@ -1,5 +1,6 @@
 import argparse
 import glob
+import os
 
 import cv2
 import numpy as np
@@ -15,12 +16,19 @@ from video import load_mouth_images, load_video
 def preprocess_videos(videos, save_dir):
     face_predictor = FacePredictor()
     for video in videos:
-        mouth_images = load_mouth_images(face_predictor, video, skip_frames=3)
+        try:
+            mouth_images = load_mouth_images(face_predictor, video, skip_frames=3)
+        except Exception as e:
+            print(e)
+            continue
         video_name = video.split("/")[-1].rsplit(".mpg", 1)[0]
         speaker = video.split("/")[-2][1:]
-        save_path = save_dir + "/mouths/s" + speaker + "/" + video_name
+        # save_path = save_dir + "/mouths/s" + speaker + "/" + video_name
+        save_path = os.path.join(save_dir, "mouths", "s" + speaker, video_name)
+        os.makedirs(save_path, exist_ok=True)
         for i, frame in enumerate(mouth_images):
-            cv2.imwrite(save_path + "/" + str(i) + ".png", frame)
+            file = f'{save_path}/mouth_{i:03}.png'
+            cv2.imwrite(file, frame)
 
 
 def preprocess(directory):

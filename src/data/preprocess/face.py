@@ -12,7 +12,7 @@ def load_image(image_path):
 
 
 class FacePredictor():
-    def __init__(self, model_path='data/pretrained/shape_predictor_68_face_landmarks.dat'):
+    def __init__(self, model_path='data/dlib/shape_predictor_68_face_landmarks.dat'):
         self.detector = dlib.get_frontal_face_detector()
         self.predictor = dlib.shape_predictor(model_path)
 

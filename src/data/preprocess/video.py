@@ -6,7 +6,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
-from pose_hopenet import HeadPose
+from pose_dlib import HeadPose
 
 
 def load_video(video_path):
