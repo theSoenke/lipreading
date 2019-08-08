@@ -4,8 +4,8 @@ channels:
   - pytorch
 dependencies:
   - python=3.6
-  - pytorch=1.1.0
-  - torchvision=0.3.0
+  - pytorch=1.2.0
+  - torchvision=0.4.0
   - cudatoolkit=10.0
   - future
   - pytables=3.5.2
