@@ -40,7 +40,7 @@ np.random.seed(42)
 # torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-query = "(yaw > 30)"
+query = None
 train_data = HDF5Dataset(path=args.hdf5, query=query)
 train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size, pin_memory=True)
 val_loader = DataLoader(HDF5Dataset(path=args.hdf5, table='val', query=query), shuffle=False, batch_size=batch_size * 2)
