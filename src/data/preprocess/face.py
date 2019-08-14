@@ -39,6 +39,7 @@ class FacePredictor():
         miny = min(ymouthpoints)
 
         crop_image = image[miny-pad:miny+height+pad, minx-pad:minx+width+pad]
+        assert crop_image.size == (width + 2 * pad) * (height + 2 * pad)
         return crop_image
 
 

@@ -6,8 +6,6 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
-from pose_dlib import HeadPose
-
 
 def load_video(video_path):
     cap = cv2.VideoCapture(video_path)
@@ -35,6 +33,7 @@ def save_frames(video_path, output_path):
 
 
 def extract_angles(video_path):
+    from pose_dlib import HeadPose
     head_pose = HeadPose()
     frames = load_video(video_path)
     angles = []
