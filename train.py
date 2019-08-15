@@ -39,6 +39,7 @@ torch.manual_seed(42)
 np.random.seed(42)
 # torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 query = None
 train_data = HDF5Dataset(path=args.hdf5, query=query)

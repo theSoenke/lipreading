@@ -31,6 +31,7 @@ parser.add_argument("--words", type=int, default=10)
 parser.add_argument("--resnet", type=int, default=18)
 parser.add_argument("--pretrained", default=True, type=lambda x: (str(x).lower() == 'true'))
 parser.add_argument("--log_interval", type=int, default=50)
+parser.add_argument("--workers", type=int, default=4)
 args = parser.parse_args()
 
 batch_size = args.batch_size
@@ -41,10 +42,17 @@ torch.manual_seed(42)
 np.random.seed(42)
 # torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 train_data = GRIDDataset(path=args.data)
-train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size,  collate_fn=ctc_collate, pin_memory=True)
-val_loader = DataLoader(GRIDDataset(path=args.data, mode='val'), shuffle=False, batch_size=batch_size * 2, collate_fn=ctc_collate)
+train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size,  collate_fn=ctc_collate, num_workers=args.workers, pin_memory=True)
+val_loader = DataLoader(
+    GRIDDataset(path=args.data, mode='val'),
+    shuffle=False,
+    batch_size=batch_size * 2,
+    collate_fn=ctc_collate,
+    num_workers=args.workers
+)
 samples = len(train_data)
 os.makedirs(args.checkpoint_dir, exist_ok=True)
 
@@ -101,8 +109,8 @@ def train(epoch, start_time):
                 f"Epoch: [{epoch + 1}/{epochs}], "
                 + f"{samples_processed}/{samples} samples, "
                 + f"Loss: {loss:.2f}, "
-                + f"Time per sample: {((np.mean(batch_times) * 1000) / batch_size) / log_interval:.2f}ms, "
-                + f"Load sample: {((np.mean(load_times) * 1000) / batch_size) / log_interval:.2f}ms, "
+                + f"Time per sample: {((np.mean(batch_times) * 1000) / batch_size) / log_interval:.3f}ms, "
+                + f"Load sample: {((np.mean(load_times) * 1000) / batch_size) / log_interval:.3f}ms, "
                 + f"Train acc: {np.mean(accuracies):.4f}, "
                 + f"Elapsed time: {time.strftime('%H:%M:%S', time.gmtime(duration))}, "
                 + f"Remaining time: {time.strftime('%H:%M:%S', time.gmtime(remaining_time))}")
