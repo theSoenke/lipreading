@@ -80,13 +80,13 @@ class GRIDDataset(Dataset):
             sample_i['mode'] = 7
             self.dataset.append(sample_i)
 
-        self.vocab = []
+        self.vocab = [' ']
         for char in vocab_unordered:
             self.vocab.append(char)
         self.vocab.sort()
         self.vocab_mapping = {' ': 0}
         for i, char in enumerate(self.vocab):
-            self.vocab_mapping[char] = i + 1
+            self.vocab_mapping[char] = i
 
     def __len__(self):
         return len(self.dataset)
