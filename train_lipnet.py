@@ -1,7 +1,6 @@
 import argparse
 import datetime
 import os
-import pdb
 import time
 from datetime import datetime
 
@@ -24,7 +23,7 @@ parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints/grid
 parser.add_argument("--checkpoint", type=str)
 parser.add_argument("--tensorboard_logdir", type=str, default='data/tensorboard')
 parser.add_argument("--epochs", type=int, default=50)
-parser.add_argument("--batch_size", type=int, default=156)
+parser.add_argument("--batch_size", type=int, default=256)
 parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--weight_decay", type=float, default=1e-5)
 parser.add_argument("--words", type=int, default=10)
@@ -180,10 +179,10 @@ start_time = time.time()
 best_val_acc = 0
 for epoch in range(epochs):
     train(epoch, start_time)
+    validate(epoch)
     checkpoint_name = f"checkpoint_{epoch}_{current_time}.pkl"
     checkpoint_path = os.path.join(args.checkpoint_dir, checkpoint_name)
     create_checkpoint(checkpoint_path, model)
-    validate(epoch)
 
 wandb.config.parameters = trainable_params
 wandb.save(checkpoint_path)

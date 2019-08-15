@@ -10,6 +10,7 @@ dependencies:
   - future
   - pytables=3.5.2
   - tqdm=4.32.2
+  - editdistance=0.5.3
   - pip
   - pip:
       - tensorboard==1.14.0
