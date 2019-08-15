@@ -1,5 +1,9 @@
 # Ensemble-Based Multi-View Lipreading
 
+
+## Setup
+- Install [ctcdecode](https://github.com/parlance/ctcdecode)
+
 ## Preprocess
 
     ./scripts/dlib_model.sh

@@ -86,7 +86,7 @@ class GRIDDataset(Dataset):
         self.vocab.sort()
         self.vocab_mapping = {' ': 0}
         for i, char in enumerate(self.vocab):
-            self.vocab_mapping[char] = i
+            self.vocab_mapping[char] = i + 1
 
     def __len__(self):
         return len(self.dataset)
@@ -94,7 +94,7 @@ class GRIDDataset(Dataset):
     def __getitem__(self, idx):
         x = torch.zeros(3, self.max_timesteps, 40, 60)
         data = self.dataset[idx]
-        frames, y, sub = self.load_sample(data)
+        frames, y = self.load_sample(data)
         x[:, : frames.size(1), :, :] = frames
         length = frames.size(1)
 
@@ -144,7 +144,7 @@ class GRIDDataset(Dataset):
             x[:, frame_count, :, :] = img
             frame_count += 1
 
-        return x, y, sub
+        return x, y
 
     def build_file_list(self):
         pattern = self.path + "/videos/**/*.mpg"
