@@ -54,9 +54,9 @@ pretrained = False if args.checkpoint != None else args.pretrained
 model = LipNet(vocab_size=len(train_data.vocab)).to(device)
 decoder = Decoder(train_data.vocab)
 crit = nn.CTCLoss(reduction='none', zero_infinity=True).to(device)
-# wandb.init(project="lipreading")
-# wandb.config.update(args)
-# wandb.watch(model)
+wandb.init(project="grid")
+wandb.config.update(args)
+wandb.watch(model)
 optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 if args.checkpoint != None:
     load_checkpoint(args.checkpoint, model, optimizer=None)
@@ -64,7 +64,14 @@ if args.checkpoint != None:
 
 def train(epoch, start_time):
     model.train()
-    for i, batch in enumerate(train_loader):
+    batch_times, load_times, accuracies = np.array([]), np.array([]), np.array([])
+    samples_processed = 0
+    loader = iter(train_loader)
+    for step in range(1, len(train_loader) + 1):
+        batch_start = time.time()
+        batch = next(loader)
+        load_times = np.append(load_times, time.time() - batch_start)
+
         x, y, lengths, y_lengths, idx = batch
         x, y = x.to(device), y.to(device)
 
@@ -75,10 +82,31 @@ def train(epoch, start_time):
         weight = torch.ones_like(loss_all)
         dlogits = torch.autograd.grad(loss_all, logits, grad_outputs=weight)[0]
         logits.backward(dlogits)
-        iter_loss = loss.item()
-        print(iter_loss)
         optimizer.step()
         optimizer.zero_grad()
+
+        acc = 0  # TODO
+        accuracies = np.append(accuracies, acc)
+
+        batch_times = np.append(batch_times, time.time() - batch_start)
+        samples_processed += len(x)
+        global_step = ((epoch * samples) // batch_size) + step
+        wandb.log({"train_acc": acc, "train_loss": loss})
+        if step % log_interval == 0:
+            duration = time.time() - start_time
+            total_samples_processed = (epoch * samples) + samples_processed
+            total_samples = epochs * samples
+            remaining_time = (total_samples - total_samples_processed) * (duration / total_samples_processed)
+            print(
+                f"Epoch: [{epoch + 1}/{epochs}], "
+                + f"{samples_processed}/{samples} samples, "
+                + f"Loss: {loss:.2f}, "
+                + f"Time per sample: {((np.mean(batch_times) * 1000) / batch_size) / log_interval:.2f}ms, "
+                + f"Load sample: {((np.mean(load_times) * 1000) / batch_size) / log_interval:.2f}ms, "
+                + f"Train acc: {np.mean(accuracies):.4f}, "
+                + f"Elapsed time: {time.strftime('%H:%M:%S', time.gmtime(duration))}, "
+                + f"Remaining time: {time.strftime('%H:%M:%S', time.gmtime(remaining_time))}")
+            batch_times, load_times, accuracies = np.array([]), np.array([]), np.array([])
 
 
 trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -88,5 +116,5 @@ best_val_acc = 0
 for epoch in range(epochs):
     train(epoch, start_time)
 
-# wandb.config.parameters = trainable_params
+wandb.config.parameters = trainable_params
 # wandb.save(checkpoint_path)

@@ -96,7 +96,7 @@ def train(epoch, start_time):
             print(
                 f"Epoch: [{epoch + 1}/{epochs}], "
                 + f"{samples_processed}/{samples} samples, "
-                + f"Loss: {loss:.2f}ms, "
+                + f"Loss: {loss:.2f}, "
                 + f"Time per sample: {((np.mean(batch_times) * 1000) / batch_size) / log_interval:.2f}ms, "
                 + f"Load sample: {((np.mean(load_times) * 1000) / batch_size) / log_interval:.2f}ms, "
                 + f"Train acc: {np.mean(accuracies):.4f}, "
