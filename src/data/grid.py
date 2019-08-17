@@ -2,13 +2,10 @@ import glob
 import math
 import os
 import random
-from string import ascii_lowercase
 
-import cv2
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
-from torch.utils.data.dataloader import default_collate
 from torchvision import transforms
 
 
@@ -16,33 +13,16 @@ def round(x):
     return math.floor(x + 0.5)
 
 
-def ctc_collate(batch):
-    xs, ys, lens, indices = zip(*batch)
-    max_len = max(lens)
-    x = default_collate(xs)
-    x.narrow(2, 0, max_len)
-    y = []
-    for sub in ys:
-        y += sub
-    y = torch.IntTensor(y)
-    lengths = torch.IntTensor(lens)
-    y_lengths = torch.IntTensor([len(label) for label in ys])
-    ids = default_collate(indices)
-
-    return x, y, lengths, y_lengths, ids
-
-
 class GRIDDataset(Dataset):
-    def __init__(self, path, mode="train"):
+    def __init__(self, path, mode='train'):
         self.path = path
         self.mode = mode
         self.max_timesteps = 75
-        if mode == "train":
-            self.speakers = (0, 24)
-        elif mode == "val":
-            self.speakers = (24, 29)
-        else:
-            self.speakers = (29, 34)
+        self.speakers = {
+            'train': (0, 24),
+            'val': (24, 29),
+            'test': (29, 34),
+        }[mode]
         self.file_list = self.build_file_list()
         self.dataset = []
 
@@ -55,10 +35,10 @@ class GRIDDataset(Dataset):
         self.num_videos = 0
         for video, align in self.file_list:
             speaker = int(video.split("/")[-2][1:])
-            video_id = video.split("/")[-1][:-4]
+            video = video.split("/")[-1][:-4]
 
             self.num_videos += 1
-            sample = {'speaker': speaker, 'video_id': video_id, 'words': [], 'time_start': [], 'time_end': []}
+            sample = {'speaker': speaker, 'video': video, 'words': [], 'time_start': [], 'time_end': []}
             for line in open(align, 'r').read().splitlines():
                 token = line.split(' ')
                 if token[2] != 'sil' and token[2] != 'sp':
@@ -129,7 +109,7 @@ class GRIDDataset(Dataset):
         for char in sub:
             y.append(self.vocab_mapping[char])
 
-        video_path = os.path.join(self.path, 'mouths', 's' + str(data['speaker']), data['video_id'])
+        video_path = os.path.join(self.path, 'mouths', 's' + str(data['speaker']), data['video'])
         x = torch.FloatTensor(3, frame_end - frame_start + 1, 40, 60)
         transform = transforms.Compose([
             transforms.ToTensor(),

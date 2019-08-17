@@ -13,7 +13,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 import wandb
 from src.checkpoint import create_checkpoint, load_checkpoint
-from src.data.grid import GRIDDataset, ctc_collate
+from src.data.grid import GRIDDataset
+from src.data.ouluvs2 import OuluVS2Dataset
+from src.data.utils import ctc_collate
 from src.models.ctc_decoder import Decoder
 from src.models.lipnet import LipNet
 
