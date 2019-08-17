@@ -8,15 +8,18 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
+from src.data.transforms import StatefulRandomHorizontalFlip
+
 
 def round(x):
     return math.floor(x + 0.5)
 
 
 class GRIDDataset(Dataset):
-    def __init__(self, path, mode='train'):
+    def __init__(self, path, mode='train', augmentation=False):
         self.path = path
         self.mode = mode
+        self.augmentation = augmentation
         self.max_timesteps = 75
         self.speakers = {
             'train': (0, 24),
@@ -111,7 +114,15 @@ class GRIDDataset(Dataset):
 
         video_path = os.path.join(self.path, 'mouths', 's' + str(data['speaker']), data['video'])
         x = torch.FloatTensor(3, frame_end - frame_start + 1, 40, 60)
+        if(self.augmentation):
+            augmentations = transforms.Compose([
+                StatefulRandomHorizontalFlip(0.5),
+            ])
+        else:
+            augmentations = transforms.Compose([])
+
         transform = transforms.Compose([
+            augmentations,
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.7136, 0.4906, 0.3283],
                                  std=[0.113855171, 0.107828568, 0.0917060521])
