@@ -45,7 +45,7 @@ np.random.seed(42)
 torch.backends.cudnn.benchmark = False
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-train_data = GRIDDataset(path=args.data)
+train_data = OuluVS2Dataset(path=args.data, augmentation=True)
 train_loader = DataLoader(
     train_data,
     shuffle=True,

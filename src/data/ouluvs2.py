@@ -11,10 +11,13 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from tqdm import tqdm
 
+from src.data.transforms import StatefulRandomHorizontalFlip
+
 
 class OuluVS2Dataset(Dataset):
-    def __init__(self, path, mode='train'):
+    def __init__(self, path, mode='train', augmentation=False):
         self.path = path
+        self.augmentation = augmentation
         self.max_timesteps = 38
         self.speakers = {
             'train': (0, 40),
@@ -35,6 +38,8 @@ class OuluVS2Dataset(Dataset):
             "You are welcome",
         ]
         self.preprocess()
+        print(f'{mode}: samples = {len(self.file_list)}, vocab_size = {len(self.vocab)}')
+        print(f'vocab = {"|".join(self.vocab)}')
 
     def preprocess(self):
         vocab_unordered = {}
@@ -94,9 +99,18 @@ class OuluVS2Dataset(Dataset):
         path = self.file_list[idx]
         x = torch.zeros(3, self.max_timesteps, 100, 120)
         frames, _, _ = torchvision.io.read_video(path)
+
+        if(self.augmentation):
+            augmentations = transforms.Compose([
+                StatefulRandomHorizontalFlip(0.5),
+            ])
+        else:
+            augmentations = transforms.Compose([])
+
         transform = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize((100, 120)),
+            augmentations,
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.7136, 0.4906, 0.3283],
                                  std=[0.113855171, 0.107828568, 0.0917060521])
