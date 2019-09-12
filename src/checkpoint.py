@@ -4,7 +4,7 @@ import torch
 def load_checkpoint(path, model, optimizer=None):
     print("Loading checkpoint: %s" % path)
     checkpoint = torch.load(path)
-    model.load_state_dict(checkpoint['state_dict'])
+    model.load_state_dict(checkpoint['state_dict'], strict=False)
     if optimizer != None:
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 

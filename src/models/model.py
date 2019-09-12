@@ -1,4 +1,6 @@
+import torch
 from torch import nn
+from torch.functional import F
 
 from src.models.resnet import ResNetModel
 
@@ -38,11 +40,27 @@ class Model(nn.Module):
         self.fc = nn.Linear(256 * 2, num_classes)
         self.softmax = nn.LogSoftmax(dim=2)
         self.loss = NLLSequenceLoss()
+        hidden_size = 10
+        # self.attention = FCAttention(input_dim=256, num_experts=2)
 
     def forward(self, x):
-        x = self.frontend(x)
-        x = self.resnet(x)
+        # x = self.frontend(x)
+        # x = self.resnet(x)
+        # self.res = x
+
+        # import pdb
+        # pdb.set_trace()
+        # x = self.attn(x)
+
+        # x = self.attention.forward(x, query=0)
+        # x = x.bmm(attn_weights)
+
         x, _ = self.lstm(x)
         x = self.fc(x)
         x = self.softmax(x)
+        return x
+
+    def front_pass(self, x):
+        x = self.frontend(x)
+        x = self.resnet(x)
         return x

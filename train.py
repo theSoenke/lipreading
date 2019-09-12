@@ -8,6 +8,7 @@ from datetime import datetime
 import numpy as np
 import torch
 from torch import nn, optim
+from torch.functional import F
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
@@ -20,6 +21,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--data', required=True)
 parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints')
 parser.add_argument("--checkpoint", type=str)
+parser.add_argument("--checkpoint2", type=str)
 parser.add_argument("--tensorboard_logdir", type=str, default='data/tensorboard')
 parser.add_argument("--epochs", type=int, default=50)
 parser.add_argument("--batch_size", type=int, default=24)
@@ -63,6 +65,25 @@ optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_
 if args.checkpoint != None:
     load_checkpoint(args.checkpoint, model, optimizer=None)
 
+model2 = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretrained=pretrained).to(device)
+load_checkpoint(args.checkpoint2, model2, optimizer=None)
+
+
+class FCAttention(nn.Module):
+    def __init__(self, input_dim, num_experts):
+        super().__init__()
+        self.input_dim = input_dim
+        self.attn = nn.Linear(input_dim * num_experts, input_dim)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.attn(x)
+        x = self.relu(x)
+        return x
+
+
+attention = FCAttention(input_dim=256, num_experts=2).to(device)
+
 
 def train(epoch, start_time):
     model.train()
@@ -78,7 +99,14 @@ def train(epoch, start_time):
         frames = batch['frames'].to(device)
         labels = batch['label'].to(device)
 
-        output = model(frames)
+        output1 = model.front_pass(frames)
+        output2 = model2.front_pass(frames)
+
+        # import pdb
+        # pdb.set_trace()
+        combined = attention.forward(torch.cat([output1, output2], dim=2))
+        output = model(combined)
+
         loss = criterion(output, labels.squeeze(1))
         loss.backward()
         optimizer.step()
@@ -118,7 +146,11 @@ def validate(epoch):
     for batch in val_loader:
         frames = batch['frames'].to(device)
         labels = batch['label'].to(device)
-        output = model(frames)
+        output1 = model.front_pass(frames)
+        output2 = model2.front_pass(frames)
+
+        combined = attention.forward(torch.cat([output1, output2], dim=2))
+        output = model(combined)
         loss = criterion(output, labels.squeeze(1))
 
         acc = accuracy(output, labels)
