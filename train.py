@@ -15,6 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 import wandb
 from src.checkpoint import create_checkpoint, load_checkpoint
 from src.data.lrw import LRWDataset
+from src.models.attention import *
 from src.models.model import Model
 
 parser = argparse.ArgumentParser()
@@ -69,20 +70,7 @@ model2 = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretra
 load_checkpoint(args.checkpoint2, model2, optimizer=None)
 
 
-class FCAttention(nn.Module):
-    def __init__(self, input_dim, num_experts):
-        super().__init__()
-        self.input_dim = input_dim
-        self.attn = nn.Linear(input_dim * num_experts, input_dim)
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        x = self.attn(x)
-        x = self.relu(x)
-        return x
-
-
-attention = FCAttention(input_dim=256, num_experts=2).to(device)
+attention = LuongAttention(attention_dim=256, num_experts=2).to(device)
 
 
 def train(epoch, start_time):
@@ -91,6 +79,7 @@ def train(epoch, start_time):
     batch_times, load_times, accuracies = np.array([]), np.array([]), np.array([])
     loader = iter(train_loader)
     samples_processed = 0
+    degree = torch.LongTensor([[0], [1], [0], [1], [0], [1], [0], [1], [0], [1], [0], [1]]).to(device)
     for step in range(1, len(train_loader) + 1):
         batch_start = time.time()
         batch = next(loader)
@@ -102,10 +91,13 @@ def train(epoch, start_time):
         output1 = model.front_pass(frames)
         output2 = model2.front_pass(frames)
 
-        # import pdb
-        # pdb.set_trace()
-        combined = attention.forward(torch.cat([output1, output2], dim=2))
-        output = model(combined)
+        encoder_out = torch.cat([output1, output2], dim=2)
+        context, mask = attention(degree, encoder_out)
+        import pdb
+        pdb.set_trace()
+
+        output = torch.cat([encoder_out, context], dim=2)
+        output = model(output)
 
         loss = criterion(output, labels.squeeze(1))
         loss.backward()
