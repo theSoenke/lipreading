@@ -22,13 +22,13 @@ class LuongAttention(nn.Module):
         self.embedding = nn.Embedding(num_experts, attention_dim * num_experts)
         self.softmax = nn.Softmax(dim=1)
 
-    def score(self, decoder_hidden, encoder_out):
-        encoder_out = self.W(encoder_out)
-        return encoder_out @ decoder_hidden
+    def score(self, embedding, encoder_out):
+        embedding = self.W(embedding)
+        return embedding @ encoder_out.transpose(1, 2)
 
-    def forward(self, decoder_hidden, encoder_out):
-        embedding = self.embedding(decoder_hidden).transpose(1, 2)
+    def forward(self, degree, encoder_out):
+        embedding = self.embedding(degree)
         energies = self.score(embedding, encoder_out)
         mask = self.softmax(energies)
-        context = encoder_out.transpose(2, 1) @ mask
-        return context, mask
+        context = embedding.transpose(2, 1) @ mask
+        return context.transpose(1, 2), mask
