@@ -17,7 +17,7 @@ from src.data.lrw import LRWDataset
 from src.models.model import Model
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--hdf5', required=True)
+parser.add_argument('--data', required=True)
 parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints')
 parser.add_argument("--checkpoint", type=str)
 parser.add_argument("--tensorboard_logdir", type=str, default='data/tensorboard')
@@ -26,6 +26,7 @@ parser.add_argument("--batch_size", type=int, default=24)
 parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--weight_decay", type=float, default=1e-5)
 parser.add_argument("--words", type=int, default=10)
+parser.add_argument("--workers", type=int, default=4)
 parser.add_argument("--resnet", type=int, default=18)
 parser.add_argument("--pretrained", default=True, type=lambda x: (str(x).lower() == 'true'))
 parser.add_argument("--log_interval", type=int, default=50)
@@ -42,9 +43,10 @@ torch.backends.cudnn.benchmark = False
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 query = None
-train_data = HDF5Dataset(path=args.hdf5, query=query)
-train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size, pin_memory=True)
-val_loader = DataLoader(HDF5Dataset(path=args.hdf5, table='val', query=query), shuffle=False, batch_size=batch_size * 2)
+train_data = LRWDataset(directory=args.data, num_words=args.words)
+train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size, num_workers=args.workers, pin_memory=True)
+val_data = LRWDataset(directory=args.data, mode='val', num_words=args.words)
+val_loader = DataLoader(val_data, shuffle=False, batch_size=batch_size * 2, num_workers=args.workers,)
 samples = len(train_data)
 os.makedirs(args.checkpoint_dir, exist_ok=True)
 

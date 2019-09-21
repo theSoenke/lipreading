@@ -11,7 +11,6 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from tqdm import tqdm
 
-from src.data.preprocess.pose_hopenet import HeadPose
 from src.data.transforms import StatefulRandomHorizontalFlip
 
 
@@ -25,11 +24,14 @@ def build_word_list(directory, num_words):
 
 
 class LRWDataset(Dataset):
-    def __init__(self, directory, num_words=500, mode="train", augmentation=False):
+    def __init__(self, directory, num_words=500, mode="train", augmentation=False, estimate_pose=False):
         self.num_words = num_words
         self.augmentation = augmentation if mode == 'train' else False
         self.file_list, self.words = self.build_file_list(directory, mode)
-        self.head_pose = HeadPose()
+        self.estimate_pose = estimate_pose
+        if estimate_pose:
+            from src.data.preprocess.pose_hopenet import HeadPose
+            self.head_pose = HeadPose()
 
     def build_file_list(self, directory, mode):
         words = build_word_list(directory, self.num_words)
@@ -52,17 +54,20 @@ class LRWDataset(Dataset):
         for i in range(0, 29):
             _, frame = cap.read()
             image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-            if i == 14:
-                try:
-                    angles = self.head_pose.predict(image)
-                    if angles == None:
-                        print("File: %s, Error: Could not detect pose" % (file))
+            if self.estimate_pose:
+                if i == 14:
+                    try:
+                        angles = self.head_pose.predict(image)
+                        if angles == None:
+                            print("File: %s, Error: Could not detect pose" % (file))
+                            yaw = None
+                        else:
+                            yaw = angles['yaw']
+                    except Exception as e:
+                        print("File: %s, Error: %s" % (file, e))
                         yaw = None
-                    else:
-                        yaw = angles['yaw']
-                except Exception as e:
-                    print("File: %s, Error: %s" % (file, e))
-                    yaw = None
+            else:
+                yaw = None
             image = F.to_tensor(image)
             frames.append(image)
 
@@ -131,7 +136,7 @@ def preprocess(path, output, num_words, augmentation=False, workers=None):
     words = None
     for mode in ['train', 'val', 'test']:
         print("Generating %s data" % mode)
-        dataset = LRWDataset(directory=path, num_words=num_words, mode=mode, augmentation=augmentation)
+        dataset = LRWDataset(directory=path, num_words=num_words, mode=mode, augmentation=augmentation, estimate_pose=True)
         if words != None:
             assert words == dataset.words
         words = dataset.words
