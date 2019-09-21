@@ -70,7 +70,7 @@ model2 = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretra
 load_checkpoint(args.checkpoint2, model2, optimizer=None)
 
 
-attention = LuongAttention(attention_dim=256, num_experts=2).to(device)
+attention = LuongAttention3(attention_dim=256, num_experts=2).to(device)
 
 
 def train(epoch, start_time):
@@ -91,12 +91,17 @@ def train(epoch, start_time):
         output1 = model.front_pass(frames)
         output2 = model2.front_pass(frames)
 
-        encoder_out = torch.cat([output1, output2], dim=2)
-        context, mask = attention(degree, encoder_out)
         import pdb
         pdb.set_trace()
+        # encoder_out = torch.cat([output1, output2], dim=2)
+        encoder_out = torch.stack([output1, output2], dim=1)
+        context = attention(degree, encoder_out)
+        # attn = context.view(-1, 2, 256).sum(dim=2)
+        expert_attn = context.chunk(chunks=2, dim=2)
+        expert_attn.sum(dim=2)
 
-        output = torch.cat([encoder_out, context], dim=2)
+        context = context.transpose(1, 2)
+        output = torch.cat([encoder_out, context], dim=1)
         output = model(output)
 
         loss = criterion(output, labels.squeeze(1))
