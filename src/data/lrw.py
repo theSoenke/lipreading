@@ -9,6 +9,7 @@ from PIL import Image
 from tables import Float32Col, Int32Col, IsDescription, StringCol, open_file
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
+from torchvision.datasets.video_utils import VideoClips
 from tqdm import tqdm
 
 from src.data.transforms import StatefulRandomHorizontalFlip
@@ -27,7 +28,12 @@ class LRWDataset(Dataset):
     def __init__(self, directory, num_words=500, mode="train", augmentation=False, estimate_pose=False):
         self.num_words = num_words
         self.augmentation = augmentation if mode == 'train' else False
-        self.file_list, self.words = self.build_file_list(directory, mode)
+        video_paths, self.labels, self.words = self.build_file_list(directory, mode)
+        self.video_clips = VideoClips(
+            video_paths,
+            clip_length_in_frames=29,
+            frames_between_clips=1,
+        )
         self.estimate_pose = estimate_pose
         if estimate_pose:
             from src.data.preprocess.pose_hopenet import HeadPose
@@ -37,16 +43,17 @@ class LRWDataset(Dataset):
         words = build_word_list(directory, self.num_words)
         print(words)
         videos = []
+        labels = []
         for i, word in enumerate(words):
             dirpath = directory + "/{}/{}".format(word, mode)
             files = os.listdir(dirpath)
             for file in files:
                 if file.endswith("mp4"):
                     path = dirpath + "/{}".format(file)
-                    video = (i, path, file)
-                    videos.append(video)
+                    videos.append(path)
+                    labels.append(i)
 
-        return videos, words
+        return videos, labels, words
 
     def load_video(self, file):
         cap = cv2.VideoCapture(file)
@@ -83,6 +90,7 @@ class LRWDataset(Dataset):
             augmentations = transforms.Compose([])
 
         for i in range(0, 29):
+            frame = frames[i].permute(2, 0, 1)  # (Tensor[C, H, W])
             result = transforms.Compose([
                 transforms.ToPILImage(),
                 transforms.CenterCrop((112, 112)),
@@ -90,24 +98,21 @@ class LRWDataset(Dataset):
                 transforms.Grayscale(num_output_channels=1),
                 transforms.ToTensor(),
                 transforms.Normalize([0.4161, ], [0.1688, ]),
-            ])(frames[i])
+            ])(frame)
             temporalVolume[0][i] = result
 
         return temporalVolume
 
     def __len__(self):
-        return len(self.file_list)
+        return self.video_clips.num_clips()
 
     def __getitem__(self, idx):
-        label, path, filename = self.file_list[idx]
-        frames, yaw = self.load_video(path)
-        if yaw == None:
-            yaw = 500
+        label = self.labels[idx]
+        video, _, _, _ = self.video_clips.get_clip(idx)  # (Tensor[T, H, W, C])
+        frames = self.build_tensor(video)
         sample = {
             'frames': frames,
             'label': torch.LongTensor([label]),
-            'yaw': yaw,
-            'file': filename,
             'word': self.words[label],
         }
         return sample
