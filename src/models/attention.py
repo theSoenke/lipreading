@@ -18,57 +18,16 @@ class FCAttention(nn.Module):
 class LuongAttention(nn.Module):
     def __init__(self, attention_dim, num_experts):
         super().__init__()
-        self.W = nn.Linear(attention_dim * num_experts, attention_dim * num_experts, bias=False)
-        self.embedding = nn.Embedding(num_experts, attention_dim * num_experts)
+        self.W = nn.Linear(attention_dim, 1, bias=False)
+        self.embedding = nn.Embedding(num_experts, 1)
         self.softmax = nn.Softmax(dim=1)
 
     def score(self, embedding, encoder_out):
-        embedding = self.W(embedding)
-        return embedding @ encoder_out.transpose(1, 2)
+        encoder_out = self.W(encoder_out)
+        return encoder_out @ embedding
 
     def forward(self, degree, encoder_out):
         embedding = self.embedding(degree)
         energies = self.score(embedding, encoder_out)
-        mask = self.softmax(energies)
-        context = embedding.transpose(2, 1) @ mask
-        return context.transpose(1, 2), mask
-
-
-class LuongAttention2(nn.Module):
-    def __init__(self, attention_dim, num_experts):
-        super().__init__()
-        self.W = nn.Linear(attention_dim * num_experts, attention_dim * num_experts, bias=False)
-        self.embedding = nn.Embedding(num_experts, attention_dim * num_experts)
-        self.softmax = nn.Softmax(dim=1)
-
-    def score(self, embedding, encoder_out):
-        import pdb
-        pdb.set_trace()
-        embedding = self.W(embedding)
-        return embedding @ encoder_out.transpose(1, 2)
-
-    def forward(self, degree, encoder_out):
-        embedding = self.embedding(degree)
-        energies = self.score(embedding, encoder_out)
-        attn_score = self.softmax(energies)
-        return attn_score
-
-
-class LuongAttention3(nn.Module):
-    def __init__(self, attention_dim, num_experts):
-        super().__init__()
-        self.W = nn.Linear(attention_dim * num_experts, attention_dim * num_experts, bias=False)
-        self.embedding = nn.Embedding(num_experts, attention_dim * num_experts)
-        self.softmax = nn.Softmax(dim=1)
-
-    def score(self, embedding, encoder_out):
-        embedding = self.W(embedding)
-        return embedding @ encoder_out.transpose(1, 2)
-
-    def forward(self, degree, encoder_out):
-        import pdb
-        pdb.set_trace()
-        embedding = self.embedding(degree)
-        energies = self.score(embedding, encoder_out)
-        attn_score = self.softmax(energies)
+        attn_score = self.softmax(energies)  # B x E x A
         return attn_score
