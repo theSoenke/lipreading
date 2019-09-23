@@ -81,15 +81,13 @@ model3 = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretra
 load_checkpoint(args.checkpoint3, model3, optimizer=None)
 
 
-def split_buckets(yaws, num_buckets=3, angle_range=[-40, 40]):
-    total_range = sum([abs(length) for length in angle_range])
-    ranges = total_range // num_buckets
+def split_buckets(yaws, num_buckets=3, angle_range=range(-40, 40)):
     buckets = []
     for i in range(num_buckets):
-        buckets.append([
-            angle_range[0] + (i * ranges),
-            angle_range[0] + ((i + 1) * ranges)
-        ])
+        start = (i * len(angle_range)) // num_buckets
+        end = ((i + 1) * len(angle_range)) // num_buckets
+        bucket = angle_range[start:end]
+        buckets.append(bucket)
 
     bucket_list = []
     for yaw in yaws:
@@ -100,7 +98,7 @@ def split_buckets(yaws, num_buckets=3, angle_range=[-40, 40]):
             yaw = angle_range[1]
 
         for i, bucket in enumerate(buckets):
-            if yaw >= bucket[0] and yaw < bucket[1]:
+            if yaw in bucket:
                 bucket_list.append(i)
                 break
 
