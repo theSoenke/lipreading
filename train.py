@@ -23,6 +23,7 @@ parser.add_argument('--data', required=True)
 parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints')
 parser.add_argument("--checkpoint", type=str)
 parser.add_argument("--checkpoint2", type=str)
+parser.add_argument("--checkpoint3", type=str)
 parser.add_argument("--tensorboard_logdir", type=str, default='data/tensorboard')
 parser.add_argument("--epochs", type=int, default=50)
 parser.add_argument("--batch_size", type=int, default=24)
@@ -69,13 +70,15 @@ for param in model.parameters():
 if args.checkpoint != None:
     load_checkpoint(args.checkpoint, model, optimizer=None)
 
-num_experts = 2
+num_experts = 3
 attention = LuongAttention(attention_dim=7424, num_experts=num_experts).to(device)
 
 optimizer = optim.Adam(attention.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
 model2 = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretrained=pretrained).to(device)
 load_checkpoint(args.checkpoint2, model2, optimizer=None)
+model3 = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretrained=pretrained).to(device)
+load_checkpoint(args.checkpoint3, model3, optimizer=None)
 
 
 def split_buckets(yaws, num_buckets=3, angle_range=[-40, 40]):
@@ -84,8 +87,8 @@ def split_buckets(yaws, num_buckets=3, angle_range=[-40, 40]):
     buckets = []
     for i in range(num_buckets):
         buckets.append([
-            angle_range[0] + (i * ranges) + i,
-            angle_range[0] + ((i + 1) * ranges) + i
+            angle_range[0] + (i * ranges),
+            angle_range[0] + ((i + 1) * ranges)
         ])
 
     bucket_list = []
@@ -97,7 +100,7 @@ def split_buckets(yaws, num_buckets=3, angle_range=[-40, 40]):
             yaw = angle_range[1]
 
         for i, bucket in enumerate(buckets):
-            if yaw >= bucket[0] and yaw <= bucket[1]:
+            if yaw >= bucket[0] and yaw < bucket[1]:
                 bucket_list.append(i)
                 break
 
@@ -124,18 +127,22 @@ def train(epoch, start_time):
 
         output1 = model.front_pass(frames)
         output2 = model2.front_pass(frames)
+        output3 = model3.front_pass(frames)
 
         output1_flat = output1.view(frames.size(0), -1)
         output2_flat = output2.view(frames.size(0), -1)
+        output3_flat = output3.view(frames.size(0), -1)
         encoder_out = torch.stack([
             output1_flat,
-            output2_flat
+            output2_flat,
+            output3_flat
         ], dim=1)
         context = attention(buckets, encoder_out)
         expert_attn = context.split(split_size=1, dim=1)
         output1_flat = output1_flat * expert_attn[0].squeeze(dim=1)
         output2_flat = output2_flat * expert_attn[1].squeeze(dim=1)
-        output = (output1_flat + output2_flat).view(frames.size(0), 29, 256)
+        output3_flat = output3_flat * expert_attn[2].squeeze(dim=1)
+        output = (output1_flat + output2_flat + output3_flat).view(frames.size(0), 29, 256)
         output = model(output)
 
         loss = criterion(output, labels.squeeze(1))
@@ -183,19 +190,23 @@ def validate(epoch):
 
         output1 = model.front_pass(frames)
         output2 = model2.front_pass(frames)
+        output3 = model2.front_pass(frames)
 
         output1_flat = output1.view(frames.size(0), -1)
         output2_flat = output2.view(frames.size(0), -1)
+        output3_flat = output3.view(frames.size(0), -1)
         encoder_out = torch.stack([
             output1_flat,
-            output2_flat
+            output2_flat,
+            output3_flat
         ], dim=1)
 
         context = attention(buckets, encoder_out)
         expert_attn = context.split(split_size=1, dim=1)
         output1_flat = output1_flat * expert_attn[0].squeeze(dim=1)
         output2_flat = output2_flat * expert_attn[1].squeeze(dim=1)
-        output = (output1_flat + output2_flat).view(frames.size(0), 29, 256)
+        output3_flat = output3_flat * expert_attn[1].squeeze(dim=1)
+        output = (output1_flat + output2_flat + output3_flat).view(frames.size(0), 29, 256)
 
         output = model(output)
         loss = criterion(output, labels.squeeze(1))
