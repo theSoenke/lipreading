@@ -60,15 +60,13 @@ samples = len(train_data)
 
 writer = SummaryWriter(log_dir=os.path.join(args.tensorboard_logdir, current_time))
 model = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretrained=pretrained).to(device)
+load_checkpoint(args.checkpoint, model, optimizer=None)
 wandb.init(project="lipreading")
 wandb.config.update(args)
 wandb.watch(model)
 
 for param in model.parameters():
     param.requires_grad = False
-
-if args.checkpoint != None:
-    load_checkpoint(args.checkpoint, model, optimizer=None)
 
 num_experts = 3
 attention = LuongAttention(attention_dim=7424, num_experts=num_experts).to(device)
@@ -81,7 +79,7 @@ model3 = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretra
 load_checkpoint(args.checkpoint3, model3, optimizer=None)
 
 
-def split_buckets(yaws, num_buckets=3, angle_range=range(-40, 40)):
+def auto_split_buckets(yaws, num_buckets=3, angle_range=range(-40, 40)):
     buckets = []
     for i in range(num_buckets):
         start = (i * len(angle_range)) // num_buckets
@@ -106,6 +104,24 @@ def split_buckets(yaws, num_buckets=3, angle_range=range(-40, 40)):
     return bucket_list
 
 
+def split_buckets(yaws, buckets=[range(-60, -20), range(-20, 20), range(20, 60)], max_ranges=[-40, 40]):
+    bucket_list = []
+    for yaw in yaws:
+        yaw = int(float(yaw))
+        if yaw < max_ranges[0]:
+            yaw = max_ranges[0]
+        elif yaw > max_ranges[1]:
+            yaw = max_ranges[1]
+
+        for i, bucket in enumerate(buckets):
+            if yaw in bucket:
+                bucket_list.append(i)
+                break
+
+    assert len(yaws) == len(bucket_list)
+    return bucket_list
+
+
 def train(epoch, start_time):
     model.train()
     criterion = model.loss
@@ -120,7 +136,7 @@ def train(epoch, start_time):
         frames = batch['frames'].to(device)
         labels = batch['label'].to(device)
         yaws = batch['yaw']
-        buckets = split_buckets(yaws, num_buckets=num_experts)
+        buckets = split_buckets(yaws)
         buckets = torch.LongTensor(buckets).unsqueeze(dim=1).to(device)
 
         output1 = model.front_pass(frames)
@@ -183,7 +199,7 @@ def validate(epoch):
         frames = batch['frames'].to(device)
         labels = batch['label'].to(device)
         yaws = batch['yaw']
-        buckets = split_buckets(yaws, num_buckets=num_experts)
+        buckets = split_buckets(yaws)
         buckets = torch.LongTensor(buckets).unsqueeze(dim=1).to(device)
 
         output1 = model.front_pass(frames)
