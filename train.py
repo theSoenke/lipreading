@@ -62,15 +62,20 @@ model = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretrai
 wandb.init(project="lipreading")
 wandb.config.update(args)
 wandb.watch(model)
-optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+
+for param in model.parameters():
+    param.requires_grad = False
+
 if args.checkpoint != None:
     load_checkpoint(args.checkpoint, model, optimizer=None)
 
-model2 = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretrained=pretrained).to(device)
-load_checkpoint(args.checkpoint2, model2, optimizer=None)
-
 num_experts = 2
 attention = LuongAttention(attention_dim=7424, num_experts=num_experts).to(device)
+
+optimizer = optim.Adam(attention.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+
+model2 = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretrained=pretrained).to(device)
+load_checkpoint(args.checkpoint2, model2, optimizer=None)
 
 
 def split_buckets(yaws, num_buckets=3, angle_range=[-40, 40]):
@@ -224,8 +229,8 @@ def accuracy_topk(outputs, labels, k=10):
     return correct / outputs.shape[0]
 
 
-trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-print(f"Training samples: {samples}, Trainable parameters: {trainable_params}")
+trainable_params = sum(p.numel() for p in attention.parameters() if p.requires_grad)
+print(f"Trainable parameters: {trainable_params}")
 start_time = time.time()
 best_val_acc = 0
 os.makedirs(args.checkpoint_dir, exist_ok=True)

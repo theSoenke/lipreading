@@ -41,7 +41,6 @@ class Model(nn.Module):
         self.softmax = nn.LogSoftmax(dim=2)
         self.loss = NLLSequenceLoss()
         hidden_size = 10
-        # self.attention = FCAttention(input_dim=256, num_experts=2)
 
     def forward(self, x):
         # x = self.frontend(x)
