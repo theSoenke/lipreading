@@ -69,8 +69,35 @@ if args.checkpoint != None:
 model2 = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretrained=pretrained).to(device)
 load_checkpoint(args.checkpoint2, model2, optimizer=None)
 
+num_experts = 2
+attention = LuongAttention(attention_dim=7424, num_experts=num_experts).to(device)
 
-attention = LuongAttention(attention_dim=7424, num_experts=2).to(device)
+
+def split_buckets(yaws, num_buckets=3, angle_range=[-40, 40]):
+    total_range = sum([abs(length) for length in angle_range])
+    ranges = total_range // num_buckets
+    buckets = []
+    for i in range(num_buckets):
+        buckets.append([
+            angle_range[0] + (i * ranges) + i,
+            angle_range[0] + ((i + 1) * ranges) + i
+        ])
+
+    bucket_list = []
+    for yaw in yaws:
+        yaw = int(float(yaw))
+        if yaw < angle_range[0]:
+            yaw = angle_range[0]
+        elif yaw > angle_range[1]:
+            yaw = angle_range[1]
+
+        for i, bucket in enumerate(buckets):
+            if yaw >= bucket[0] and yaw <= bucket[1]:
+                bucket_list.append(i)
+                break
+
+    assert len(yaws) == len(bucket_list)
+    return bucket_list
 
 
 def train(epoch, start_time):
@@ -79,7 +106,6 @@ def train(epoch, start_time):
     batch_times, load_times, accuracies = np.array([]), np.array([]), np.array([])
     loader = iter(train_loader)
     samples_processed = 0
-    degree = torch.LongTensor([[0], [1], [0], [1], [0], [1], [0], [1], [0], [1], [0], [1]]).to(device)  # FIXME
     for step in range(1, len(train_loader) + 1):
         batch_start = time.time()
         batch = next(loader)
@@ -87,19 +113,20 @@ def train(epoch, start_time):
 
         frames = batch['frames'].to(device)
         labels = batch['label'].to(device)
+        yaws = batch['yaw']
+        buckets = split_buckets(yaws, num_buckets=num_experts)
+        buckets = torch.LongTensor(buckets).unsqueeze(dim=1).to(device)
 
         output1 = model.front_pass(frames)
         output2 = model2.front_pass(frames)
 
         output1_flat = output1.view(frames.size(0), -1)
         output2_flat = output2.view(frames.size(0), -1)
-        import pdb
         encoder_out = torch.stack([
             output1_flat,
             output2_flat
         ], dim=1)
-        context = attention(degree, encoder_out)
-        print(context)
+        context = attention(buckets, encoder_out)
         expert_attn = context.split(split_size=1, dim=1)
         output1_flat = output1_flat * expert_attn[0].squeeze(dim=1)
         output2_flat = output2_flat * expert_attn[1].squeeze(dim=1)
@@ -145,11 +172,27 @@ def validate(epoch):
     for batch in val_loader:
         frames = batch['frames'].to(device)
         labels = batch['label'].to(device)
+        yaws = batch['yaw']
+        buckets = split_buckets(yaws, num_buckets=num_experts)
+        buckets = torch.LongTensor(buckets).unsqueeze(dim=1).to(device)
+
         output1 = model.front_pass(frames)
         output2 = model2.front_pass(frames)
 
-        combined = attention.forward(torch.cat([output1, output2], dim=2))
-        output = model(combined)
+        output1_flat = output1.view(frames.size(0), -1)
+        output2_flat = output2.view(frames.size(0), -1)
+        encoder_out = torch.stack([
+            output1_flat,
+            output2_flat
+        ], dim=1)
+
+        context = attention(buckets, encoder_out)
+        expert_attn = context.split(split_size=1, dim=1)
+        output1_flat = output1_flat * expert_attn[0].squeeze(dim=1)
+        output2_flat = output2_flat * expert_attn[1].squeeze(dim=1)
+        output = (output1_flat + output2_flat).view(frames.size(0), 29, 256)
+
+        output = model(output)
         loss = criterion(output, labels.squeeze(1))
 
         acc = accuracy(output, labels)
