@@ -39,9 +39,10 @@ pretrained = False if args.checkpoint != None else args.pretrained
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
 
 torch.manual_seed(42)
+torch.cuda.manual_seed_all(42)
 np.random.seed(42)
 # torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False # test
+torch.backends.cudnn.benchmark = True
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 query = None
@@ -148,7 +149,7 @@ def accuracy_topk(outputs, labels, k=10):
 
 
 trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-print(f"Trainable parameters: {trainable_params}")
+print(f"Training samples: {samples}, Trainable parameters: {trainable_params}")
 start_time = time.time()
 best_val_acc = 0
 os.makedirs(args.checkpoint_dir, exist_ok=True)
