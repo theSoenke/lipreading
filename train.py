@@ -5,6 +5,7 @@ import random
 import time
 from datetime import datetime
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from torch import nn, optim
@@ -195,6 +196,7 @@ def validate(epoch):
     model.eval()
     criterion = model.loss
     accuracies, losses = np.array([]), np.array([])
+    lefts, centers, rights, degrees = np.array([]), np.array([]), np.array([]), np.array([])
     for batch in val_loader:
         frames = batch['frames'].to(device)
         labels = batch['label'].to(device)
@@ -246,6 +248,14 @@ def validate(epoch):
     writer.add_scalar("val_acc", avg_acc, global_step=global_step)
     wandb.log({"val_acc": avg_acc, "val_loss": avg_loss})
     print(f"val_loss: {avg_loss:.3f}, val_acc {avg_acc:.5f}")
+
+    width = 0.4
+    indices = np.arange(len(lefts))
+    plt.bar(indices, lefts, width, color='r')
+    plt.bar(indices, centers, width, bottom=lefts, color='b')
+    plt.bar(indices, rights, width, bottom=lefts + centers, color='g')
+    # plt.bar(indices, degrees, width=width, bottom=lefts + centers + rights)
+    plt.show()
 
     return avg_acc
 
