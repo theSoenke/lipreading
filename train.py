@@ -216,10 +216,20 @@ def validate(epoch):
         ], dim=1)
 
         context = attention(buckets, encoder_out)
+        for i, yaw in enumerate(yaws):
+            left = context[i][0].item()
+            center = context[i][1].item()
+            right = context[i][2].item()
+            lefts = np.append(lefts, left)
+            centers = np.append(centers, center)
+            rights = np.append(rights, right)
+            degrees = np.append(degrees, yaw)
+            print(f"Degree: {yaw}, Left: {left:.3f}, Center: {center:.3f}, Right: {right:.3f}")
+
         expert_attn = context.split(split_size=1, dim=1)
         output1_flat = output1_flat * expert_attn[0].squeeze(dim=1)
         output2_flat = output2_flat * expert_attn[1].squeeze(dim=1)
-        output3_flat = output3_flat * expert_attn[1].squeeze(dim=1)
+        output3_flat = output3_flat * expert_attn[2].squeeze(dim=1)
         output = (output1_flat + output2_flat + output3_flat).view(frames.size(0), 29, 256)
 
         output = model(output)
