@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import os
+import random
 import time
 from datetime import datetime
 
@@ -30,6 +31,7 @@ parser.add_argument("--workers", type=int, default=4)
 parser.add_argument("--resnet", type=int, default=18)
 parser.add_argument("--pretrained", default=True, type=lambda x: (str(x).lower() == 'true'))
 parser.add_argument("--log_interval", type=int, default=50)
+parser.add_argument("--seed", type=int, default=42)
 args = parser.parse_args()
 
 batch_size = args.batch_size
@@ -38,9 +40,10 @@ log_interval = args.log_interval
 pretrained = False if args.checkpoint != None else args.pretrained
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
 
-torch.manual_seed(42)
-torch.cuda.manual_seed_all(42)
-np.random.seed(42)
+torch.manual_seed(args.seed)
+torch.cuda.manual_seed_all(args.seed)
+np.random.seed(args.seed)
+random.seed(args.seed)
 # torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = True
 

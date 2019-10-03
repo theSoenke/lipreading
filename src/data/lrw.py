@@ -16,7 +16,6 @@ from src.data.transforms import StatefulRandomHorizontalFlip
 
 
 def build_word_list(directory, num_words):
-    random.seed(42)
     words = os.listdir(directory)
     words.sort()
     random.shuffle(words)
