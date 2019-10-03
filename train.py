@@ -145,14 +145,25 @@ def train(epoch, start_time):
 
         context = attention(yaws)
         expert_attn = context.split(split_size=1, dim=1)
+        # output1_flat = output1.view(frames.size(0), -1)
+        # output2_flat = output2.view(frames.size(0), -1)
+        # output3_flat = output3.view(frames.size(0), -1)
+        # output1_flat = output1_flat * expert_attn[0]
+        # output2_flat = output2_flat * expert_attn[1]
+        # output3_flat = output3_flat * expert_attn[2]
+        # output = (output1_flat + output2_flat + output3_flat).view(frames.size(0), 29, 256)
+        output1 = model(output1)
+        output2 = model2(output2)
+        output3 = model3(output3)
+
         output1_flat = output1.view(frames.size(0), -1)
         output2_flat = output2.view(frames.size(0), -1)
         output3_flat = output3.view(frames.size(0), -1)
         output1_flat = output1_flat * expert_attn[0]
         output2_flat = output2_flat * expert_attn[1]
         output3_flat = output3_flat * expert_attn[2]
-        output = (output1_flat + output2_flat + output3_flat).view(frames.size(0), 29, 256)
-        output = model2(output)
+
+        output = (output1_flat + output2_flat + output3_flat).view(frames.size(0), 29, 10)
 
         loss = criterion(output, labels.squeeze(1))
         loss.backward()
@@ -196,18 +207,25 @@ def validate(epoch):
         labels = batch['label'].to(device)
         yaws = batch['yaw']
         yaws = torch.FloatTensor([float(yaw) for yaw in yaws]).unsqueeze(dim=1).to(device)
-        # buckets = split_buckets(yaws)
-        # buckets = torch.LongTensor(buckets).unsqueeze(dim=1).to(device)
 
         output1 = model.front_pass(frames)
         output2 = model2.front_pass(frames)
         output3 = model3.front_pass(frames)
 
+        output1 = model(output1)
+        output2 = model2(output2)
+        output3 = model3(output3)
+
+        context = attention(yaws)
+        expert_attn = context.split(split_size=1, dim=1)
         output1_flat = output1.view(frames.size(0), -1)
         output2_flat = output2.view(frames.size(0), -1)
         output3_flat = output3.view(frames.size(0), -1)
+        output1_flat = output1_flat * expert_attn[0]
+        output2_flat = output2_flat * expert_attn[1]
+        output3_flat = output3_flat * expert_attn[2]
 
-        context = attention(yaws)
+        output = (output1_flat + output2_flat + output3_flat).view(frames.size(0), 29, 10)
         for i, yaw in enumerate(yaws):
             yaw = yaw.item()
             left = context[i][0].item()
@@ -219,13 +237,13 @@ def validate(epoch):
             degrees = np.append(degrees, yaw)
             print(f"Degree: {yaw}, Left: {left:.3f}, Center: {center:.3f}, Right: {right:.3f}")
 
-        expert_attn = context.split(split_size=1, dim=1)
-        output1_flat = output1_flat * expert_attn[0]
-        output2_flat = output2_flat * expert_attn[1]
-        output3_flat = output3_flat * expert_attn[2]
-        output = (output1_flat + output2_flat + output3_flat).view(frames.size(0), 29, 256)
+        # expert_attn = context.split(split_size=1, dim=1)
+        # output1_flat = output1_flat * expert_attn[0]
+        # output2_flat = output2_flat * expert_attn[1]
+        # output3_flat = output3_flat * expert_attn[2]
+        # output = (output1_flat + output2_flat + output3_flat).view(frames.size(0), 29, 256)
 
-        output = model2(output)
+        # output = model2(output)
         loss = criterion(output, labels.squeeze(1))
 
         acc = accuracy(output, labels)
