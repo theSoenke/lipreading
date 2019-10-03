@@ -70,7 +70,7 @@ for param in model.parameters():
     param.requires_grad = False
 
 num_experts = 3
-attention = LuongAttention(attention_dim=7424, num_experts=num_experts).to(device)
+attention = Attention(attention_dim=40, num_experts=num_experts).to(device)
 
 optimizer = optim.Adam(attention.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
@@ -125,7 +125,7 @@ def split_buckets(yaws, buckets=[range(-60, -20), range(-20, 20), range(20, 60)]
 
 def train(epoch, start_time):
     model.train()
-    criterion = model.loss
+    criterion = model2.loss
     batch_times, load_times, accuracies = np.array([]), np.array([]), np.array([])
     loader = iter(train_loader)
     samples_processed = 0
@@ -137,28 +137,22 @@ def train(epoch, start_time):
         frames = batch['frames'].to(device)
         labels = batch['label'].to(device)
         yaws = batch['yaw']
-        buckets = split_buckets(yaws)
-        buckets = torch.LongTensor(buckets).unsqueeze(dim=1).to(device)
+        yaws = torch.FloatTensor([float(yaw) for yaw in yaws]).unsqueeze(dim=1).to(device)
 
         output1 = model.front_pass(frames)
         output2 = model2.front_pass(frames)
         output3 = model3.front_pass(frames)
 
+        context = attention(yaws)
+        expert_attn = context.split(split_size=1, dim=1)
         output1_flat = output1.view(frames.size(0), -1)
         output2_flat = output2.view(frames.size(0), -1)
         output3_flat = output3.view(frames.size(0), -1)
-        encoder_out = torch.stack([
-            output1_flat,
-            output2_flat,
-            output3_flat
-        ], dim=1)
-        context = attention(buckets, encoder_out)
-        expert_attn = context.split(split_size=1, dim=1)
-        output1_flat = output1_flat * expert_attn[0].squeeze(dim=1)
-        output2_flat = output2_flat * expert_attn[1].squeeze(dim=1)
-        output3_flat = output3_flat * expert_attn[2].squeeze(dim=1)
+        output1_flat = output1_flat * expert_attn[0]
+        output2_flat = output2_flat * expert_attn[1]
+        output3_flat = output3_flat * expert_attn[2]
         output = (output1_flat + output2_flat + output3_flat).view(frames.size(0), 29, 256)
-        output = model(output)
+        output = model2(output)
 
         loss = criterion(output, labels.squeeze(1))
         loss.backward()
@@ -194,31 +188,28 @@ def train(epoch, start_time):
 @torch.no_grad()
 def validate(epoch):
     model.eval()
-    criterion = model.loss
+    criterion = model2.loss
     accuracies, losses = np.array([]), np.array([])
     lefts, centers, rights, degrees = np.array([]), np.array([]), np.array([]), np.array([])
     for batch in val_loader:
         frames = batch['frames'].to(device)
         labels = batch['label'].to(device)
         yaws = batch['yaw']
-        buckets = split_buckets(yaws)
-        buckets = torch.LongTensor(buckets).unsqueeze(dim=1).to(device)
+        yaws = torch.FloatTensor([float(yaw) for yaw in yaws]).unsqueeze(dim=1).to(device)
+        # buckets = split_buckets(yaws)
+        # buckets = torch.LongTensor(buckets).unsqueeze(dim=1).to(device)
 
         output1 = model.front_pass(frames)
         output2 = model2.front_pass(frames)
-        output3 = model2.front_pass(frames)
+        output3 = model3.front_pass(frames)
 
         output1_flat = output1.view(frames.size(0), -1)
         output2_flat = output2.view(frames.size(0), -1)
         output3_flat = output3.view(frames.size(0), -1)
-        encoder_out = torch.stack([
-            output1_flat,
-            output2_flat,
-            output3_flat
-        ], dim=1)
 
-        context = attention(buckets, encoder_out)
+        context = attention(yaws)
         for i, yaw in enumerate(yaws):
+            yaw = yaw.item()
             left = context[i][0].item()
             center = context[i][1].item()
             right = context[i][2].item()
@@ -229,12 +220,12 @@ def validate(epoch):
             print(f"Degree: {yaw}, Left: {left:.3f}, Center: {center:.3f}, Right: {right:.3f}")
 
         expert_attn = context.split(split_size=1, dim=1)
-        output1_flat = output1_flat * expert_attn[0].squeeze(dim=1)
-        output2_flat = output2_flat * expert_attn[1].squeeze(dim=1)
-        output3_flat = output3_flat * expert_attn[2].squeeze(dim=1)
+        output1_flat = output1_flat * expert_attn[0]
+        output2_flat = output2_flat * expert_attn[1]
+        output3_flat = output3_flat * expert_attn[2]
         output = (output1_flat + output2_flat + output3_flat).view(frames.size(0), 29, 256)
 
-        output = model(output)
+        output = model2(output)
         loss = criterion(output, labels.squeeze(1))
 
         acc = accuracy(output, labels)
