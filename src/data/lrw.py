@@ -1,7 +1,6 @@
 import os
 import random
 
-import cv2
 import psutil
 import torch
 import torchvision.transforms.functional as F
@@ -15,7 +14,8 @@ from tqdm import tqdm
 from src.data.transforms import StatefulRandomHorizontalFlip
 
 
-def build_word_list(directory, num_words):
+def build_word_list(directory, num_words, seed):
+    random.seed(seed)
     words = os.listdir(directory)
     words.sort()
     random.shuffle(words)
@@ -24,10 +24,11 @@ def build_word_list(directory, num_words):
 
 
 class LRWDataset(Dataset):
-    def __init__(self, directory, num_words=500, mode="train", augmentation=False, estimate_pose=False):
+    def __init__(self, directory, num_words=500, mode="train", augmentation=False, estimate_pose=False, seed=42):
+        self.seed = seed
         self.num_words = num_words
         self.augmentation = augmentation if mode == 'train' else False
-        video_paths, self.labels, self.words = self.build_file_list(directory, mode)
+        video_paths, self.files, self.labels, self.words = self.build_file_list(directory, mode)
         self.video_clips = VideoClips(
             video_paths,
             clip_length_in_frames=29,
@@ -39,9 +40,10 @@ class LRWDataset(Dataset):
             self.head_pose = HeadPose()
 
     def build_file_list(self, directory, mode):
-        words = build_word_list(directory, self.num_words)
+        words = build_word_list(directory, self.num_words, seed=self.seed)
         print(words)
-        videos = []
+        paths = []
+        file_list = []
         labels = []
         for i, word in enumerate(words):
             dirpath = directory + "/{}/{}".format(word, mode)
@@ -49,35 +51,27 @@ class LRWDataset(Dataset):
             for file in files:
                 if file.endswith("mp4"):
                     path = dirpath + "/{}".format(file)
-                    videos.append(path)
+                    file_list.append(file)
+                    paths.append(path)
                     labels.append(i)
 
-        return videos, labels, words
+        return paths, file_list, labels, words
 
-    def load_video(self, file):
-        cap = cv2.VideoCapture(file)
-        frames = []
-        for i in range(0, 29):
-            _, frame = cap.read()
-            image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-            if self.estimate_pose:
-                if i == 14:
-                    try:
-                        angles = self.head_pose.predict(image)
-                        if angles == None:
-                            print("File: %s, Error: Could not detect pose" % (file))
-                            yaw = None
-                        else:
-                            yaw = angles['yaw']
-                    except Exception as e:
-                        print("File: %s, Error: %s" % (file, e))
-                        yaw = None
-            else:
+    def extract_yaw(self, video, file):
+        frame = video[14].permute(2, 0, 1)  # (Tensor[C, H, W])
+        image = F.to_pil_image(frame)
+        try:
+            angles = self.head_pose.predict(image)
+            if angles == None:
+                print("File: %s, Error: Could not detect pose" % (file))
                 yaw = None
-            image = F.to_tensor(image)
-            frames.append(image)
+            else:
+                yaw = angles['yaw']
+        except Exception as e:
+            print("File: %s, Error: %s" % (file, e))
+            yaw = None
 
-        return self.build_tensor(frames), yaw
+        return yaw
 
     def build_tensor(self, frames):
         temporalVolume = torch.FloatTensor(1, 29, 112, 112)
@@ -107,14 +101,40 @@ class LRWDataset(Dataset):
 
     def __getitem__(self, idx):
         label = self.labels[idx]
+        file = self.files[idx]
         video, _, _, _ = self.video_clips.get_clip(idx)  # (Tensor[T, H, W, C])
+        yaw = self.extract_yaw(video, file)
         frames = self.build_tensor(video)
         sample = {
             'frames': frames,
             'label': torch.LongTensor([label]),
             'word': self.words[label],
+            'file': self.files[idx],
+            'yaw': yaw,
         }
         return sample
+
+
+def extract_angles(path, output_path, num_words, seed):
+    words = None
+    for mode in ['train', 'val']:
+        dataset = LRWDataset(directory=path, num_words=num_words, mode=mode, estimate_pose=True, seed=seed)
+        if words != None:
+            assert words == dataset.words
+        words = dataset.words
+        data_loader = DataLoader(dataset, batch_size=128, shuffle=False, num_workers=0)
+        lines = ""
+        with tqdm(total=len(dataset)) as progress:
+            for batch in data_loader:
+                for i in range(len(batch['yaw'])):
+                    yaw = batch['yaw'][i]
+                    file_name = batch['file'][i]
+                    line = f"{file_name},{yaw:.2f}\n"
+                    lines += line
+                    progress.update(1)
+        file = open(f"{output_path}/{mode}.txt", "w")
+        file.write(lines)
+        file.close()
 
 
 class Video(IsDescription):
