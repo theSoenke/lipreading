@@ -32,16 +32,20 @@ class HeadPose():
 
     @torch.no_grad()
     def predict(self, image):
-        if isinstance(image, list):
-            image = [self.transform(img) for img in image]
+        if isinstance(image, torch.Tensor) and len(image.shape) == 4:
+            data = torch.stack([self.transform(transforms.functional.to_pil_image(img)) for img in image])
+        if isinstance(image, torch.Tensor):
+            data = self.transform(transforms.functional.to_pil_image(image))
+        elif isinstance(image, list):
+            data = [self.transform(img) for img in image]
         elif isinstance(image, str):
-            image = Image.open(image)
-            image = self.transform(image).unsqueeze(dim=0)
+            data = Image.open(image)
+            data = self.transform(image).unsqueeze(dim=0)
         else:
-            image = self.transform(image).unsqueeze(dim=0)
+            data = self.transform(image).unsqueeze(dim=0)
 
-        image = image.to(self.device)
-        yaw, pitch, roll = self.model(image)
+        data = data.to(self.device)
+        yaw, pitch, roll = self.model(data)
         yaw = F.softmax(yaw, dim=1)
         pitch = F.softmax(pitch, dim=1)
         roll = F.softmax(roll, dim=1)
@@ -49,4 +53,4 @@ class HeadPose():
         yaw = torch.sum(yaw * self.idx_tensor, dim=1) * 3 - 99
         pitch = torch.sum(pitch * self.idx_tensor, dim=1) * 3 - 99
         roll = torch.sum(roll * self.idx_tensor, dim=1) * 3 - 99
-        return {'yaw': yaw.item(), 'pitch': pitch.item(), 'roll': roll.item()}
+        return {'yaw': yaw, 'pitch': pitch, 'roll': roll}

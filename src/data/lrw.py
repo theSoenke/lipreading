@@ -35,9 +35,6 @@ class LRWDataset(Dataset):
             frames_between_clips=1,
         )
         self.estimate_pose = estimate_pose
-        if estimate_pose:
-            from src.data.preprocess.pose_hopenet import HeadPose
-            self.head_pose = HeadPose()
 
     def build_file_list(self, directory, mode):
         words = build_word_list(directory, self.num_words, seed=self.seed)
@@ -56,22 +53,6 @@ class LRWDataset(Dataset):
                     labels.append(i)
 
         return paths, file_list, labels, words
-
-    def extract_yaw(self, video, file):
-        frame = video[14].permute(2, 0, 1)  # (Tensor[C, H, W])
-        image = F.to_pil_image(frame)
-        try:
-            angles = self.head_pose.predict(image)
-            if angles == None:
-                print("File: %s, Error: Could not detect pose" % (file))
-                yaw = None
-            else:
-                yaw = angles['yaw']
-        except Exception as e:
-            print("File: %s, Error: %s" % (file, e))
-            yaw = None
-
-        return yaw
 
     def build_tensor(self, frames):
         temporalVolume = torch.FloatTensor(1, 29, 112, 112)
@@ -103,33 +84,40 @@ class LRWDataset(Dataset):
         label = self.labels[idx]
         file = self.files[idx]
         video, _, _, _ = self.video_clips.get_clip(idx)  # (Tensor[T, H, W, C])
-        yaw = self.extract_yaw(video, file)
+        if self.estimate_pose:
+            angle_frame = video[14].permute(2, 0, 1)
+        else:
+            angle_frame = None
         frames = self.build_tensor(video)
         sample = {
             'frames': frames,
             'label': torch.LongTensor([label]),
             'word': self.words[label],
             'file': self.files[idx],
-            'yaw': yaw,
+            'angle_frame': angle_frame,
         }
         return sample
 
 
-def extract_angles(path, output_path, num_words, seed):
+def extract_angles(path, output_path, num_workers, seed):
+    from src.data.preprocess.pose_hopenet import HeadPose
+    head_pose = HeadPose()
+
     words = None
     for mode in ['train', 'val']:
-        dataset = LRWDataset(directory=path, num_words=num_words, mode=mode, estimate_pose=True, seed=seed)
+        dataset = LRWDataset(directory=path, num_words=500, mode=mode, estimate_pose=True, seed=seed)
         if words != None:
             assert words == dataset.words
         words = dataset.words
-        data_loader = DataLoader(dataset, batch_size=128, shuffle=False, num_workers=0)
+        data_loader = DataLoader(dataset, batch_size=256, shuffle=False, num_workers=num_workers)
         lines = ""
         with tqdm(total=len(dataset)) as progress:
             for batch in data_loader:
-                for i in range(len(batch['yaw'])):
-                    yaw = batch['yaw'][i]
-                    file_name = batch['file'][i]
-                    line = f"{file_name},{yaw:.2f}\n"
+                frames = batch['angle_frame']
+                files = batch['file']
+                yaws = head_pose.predict(frames)['yaw']
+                for i in range(len(batch['frames'])):
+                    line = f"{files[i]},{yaws[i].item():.2f}\n"
                     lines += line
                     progress.update(1)
         file = open(f"{output_path}/{mode}.txt", "w")
