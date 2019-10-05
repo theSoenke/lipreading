@@ -13,7 +13,6 @@ from torch.utils.tensorboard import SummaryWriter
 
 import wandb
 from src.checkpoint import create_checkpoint, load_checkpoint
-from src.data.hdf5 import HDF5Dataset
 from src.data.lrw import LRWDataset
 from src.models.model import Model
 
@@ -48,10 +47,10 @@ random.seed(args.seed)
 torch.backends.cudnn.benchmark = True
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-query = None
-train_data = HDF5Dataset(path=args.data, columns=['frames', 'label', 'yaw'], query=query)
+query = None  # (-20, 20)
+train_data = LRWDataset(path=args.data, num_words=args.words, query=query)
 train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size, num_workers=args.workers, pin_memory=True)
-val_data = HDF5Dataset(path=args.data, table='val', columns=['frames', 'label', 'yaw'], query=query)
+val_data = LRWDataset(path=args.data, num_words=args.words, mode='val', query=query)
 val_loader = DataLoader(val_data, shuffle=False, batch_size=batch_size * 2, num_workers=args.workers,)
 samples = len(train_data)
 
@@ -156,7 +155,7 @@ print(f"Training samples: {samples}, Trainable parameters: {trainable_params}")
 start_time = time.time()
 best_val_acc = 0
 os.makedirs(args.checkpoint_dir, exist_ok=True)
-val_acc = validate(0) # log initial val acc
+val_acc = validate(0)  # log initial val acc
 wandb.log({"best_val_acc": best_val_acc})
 for epoch in range(epochs):
     train(epoch, start_time)

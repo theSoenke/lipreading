@@ -7,7 +7,7 @@
 ## Preprocess
 
     ./scripts/dlib_model.sh
-    python3 preprocess.py lrw --data data/datasets/lrw --words 10
+    python3 preprocess.py lrw --data data/datasets/lrw
 
 ## Train
 

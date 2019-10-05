@@ -24,17 +24,30 @@ def build_word_list(directory, num_words, seed):
 
 
 class LRWDataset(Dataset):
-    def __init__(self, directory, num_words=500, mode="train", augmentation=False, estimate_pose=False, seed=42):
+    def __init__(self, path, num_words=500, mode="train", augmentation=False, estimate_pose=False, seed=42, query=None):
         self.seed = seed
         self.num_words = num_words
+        self.query = query  # FIXME
         self.augmentation = augmentation if mode == 'train' else False
-        video_paths, self.files, self.labels, self.words = self.build_file_list(directory, mode)
+        self.poses = self.head_poses(mode, query)
+        video_paths, self.files, self.labels, self.words = self.build_file_list(path, mode)
         self.video_clips = VideoClips(
             video_paths,
             clip_length_in_frames=29,
             frames_between_clips=1,
         )
         self.estimate_pose = estimate_pose
+
+    def head_poses(self, mode, query):
+        poses = {}
+        yaw_file = open(f"data/preprocessed/{mode}.txt", "r")
+        content = yaw_file.read()
+        for line in content.splitlines():
+            file, yaw = line.split(",")
+            yaw = float(yaw)
+            if query == None or (query[0] <= yaw and query[1] > yaw):
+                poses[file] = yaw
+        return poses
 
     def build_file_list(self, directory, mode):
         words = build_word_list(directory, self.num_words, seed=self.seed)
@@ -46,7 +59,7 @@ class LRWDataset(Dataset):
             dirpath = directory + "/{}/{}".format(word, mode)
             files = os.listdir(dirpath)
             for file in files:
-                if file.endswith("mp4"):
+                if file in self.poses:
                     path = dirpath + "/{}".format(file)
                     file_list.append(file)
                     paths.append(path)
@@ -87,13 +100,14 @@ class LRWDataset(Dataset):
         if self.estimate_pose:
             angle_frame = video[14].permute(2, 0, 1)
         else:
-            angle_frame = None
+            angle_frame = 0
         frames = self.build_tensor(video)
         sample = {
             'frames': frames,
             'label': torch.LongTensor([label]),
             'word': self.words[label],
             'file': self.files[idx],
+            'yaw': self.poses[file],
             'angle_frame': angle_frame,
         }
         return sample

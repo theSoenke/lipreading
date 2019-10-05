@@ -36,10 +36,8 @@ class HeadPose():
             data = torch.stack([self.transform(transforms.functional.to_pil_image(img)) for img in image])
         if isinstance(image, torch.Tensor):
             data = self.transform(transforms.functional.to_pil_image(image))
-        elif isinstance(image, list):
-            data = [self.transform(img) for img in image]
         elif isinstance(image, str):
-            data = Image.open(image)
+            image = Image.open(image)
             data = self.transform(image).unsqueeze(dim=0)
         else:
             data = self.transform(image).unsqueeze(dim=0)
