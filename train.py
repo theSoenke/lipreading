@@ -80,49 +80,6 @@ model3 = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretra
 load_checkpoint(args.checkpoint3, model3, optimizer=None)
 
 
-def auto_split_buckets(yaws, num_buckets=3, angle_range=range(-40, 40)):
-    buckets = []
-    for i in range(num_buckets):
-        start = (i * len(angle_range)) // num_buckets
-        end = ((i + 1) * len(angle_range)) // num_buckets
-        bucket = angle_range[start:end]
-        buckets.append(bucket)
-
-    bucket_list = []
-    for yaw in yaws:
-        yaw = int(float(yaw))
-        if yaw < angle_range[0]:
-            yaw = angle_range[0]
-        elif yaw > angle_range[1]:
-            yaw = angle_range[1]
-
-        for i, bucket in enumerate(buckets):
-            if yaw in bucket:
-                bucket_list.append(i)
-                break
-
-    assert len(yaws) == len(bucket_list)
-    return bucket_list
-
-
-def split_buckets(yaws, buckets=[range(-60, -20), range(-20, 20), range(20, 60)], max_ranges=[-40, 40]):
-    bucket_list = []
-    for yaw in yaws:
-        yaw = int(float(yaw))
-        if yaw < max_ranges[0]:
-            yaw = max_ranges[0]
-        elif yaw > max_ranges[1]:
-            yaw = max_ranges[1]
-
-        for i, bucket in enumerate(buckets):
-            if yaw in bucket:
-                bucket_list.append(i)
-                break
-
-    assert len(yaws) == len(bucket_list)
-    return bucket_list
-
-
 def train(epoch, start_time):
     model.train()
     criterion = model2.loss

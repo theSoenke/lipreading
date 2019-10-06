@@ -2,19 +2,6 @@ import torch
 from torch import nn
 
 
-class FCAttention(nn.Module):
-    def __init__(self, input_dim, num_experts):
-        super().__init__()
-        self.input_dim = input_dim
-        self.attn = nn.Linear(input_dim * num_experts, input_dim)
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        x = self.attn(x)
-        x = self.relu(x)
-        return x
-
-
 class LuongAttention(nn.Module):
     def __init__(self, attention_dim, num_experts):
         super().__init__()
