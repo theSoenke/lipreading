@@ -5,21 +5,26 @@ import random
 import time
 from datetime import datetime
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from torch import nn, optim
+from torch.functional import F
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 import wandb
 from src.checkpoint import create_checkpoint, load_checkpoint
 from src.data.lrw import LRWDataset
+from src.models.attention import *
 from src.models.model import Model
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data', required=True)
 parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints')
 parser.add_argument("--checkpoint", type=str)
+parser.add_argument("--checkpoint2", type=str)
+parser.add_argument("--checkpoint3", type=str)
 parser.add_argument("--tensorboard_logdir", type=str, default='data/tensorboard')
 parser.add_argument("--epochs", type=int, default=50)
 parser.add_argument("--batch_size", type=int, default=24)
@@ -56,17 +61,28 @@ samples = len(train_data)
 
 writer = SummaryWriter(log_dir=os.path.join(args.tensorboard_logdir, current_time))
 model = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretrained=pretrained).to(device)
+load_checkpoint(args.checkpoint, model, optimizer=None)
 wandb.init(project="lipreading")
 wandb.config.update(args)
 wandb.watch(model)
-optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-if args.checkpoint != None:
-    load_checkpoint(args.checkpoint, model, optimizer=None)
+
+for param in model.parameters():
+    param.requires_grad = False
+
+num_experts = 3
+attention = Attention(attention_dim=40, num_experts=num_experts).to(device)
+
+optimizer = optim.Adam(attention.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+
+model2 = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretrained=pretrained).to(device)
+load_checkpoint(args.checkpoint2, model2, optimizer=None)
+model3 = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretrained=pretrained).to(device)
+load_checkpoint(args.checkpoint3, model3, optimizer=None)
 
 
 def train(epoch, start_time):
     model.train()
-    criterion = model.loss
+    criterion = model2.loss
     batch_times, load_times, accuracies = np.array([]), np.array([]), np.array([])
     loader = iter(train_loader)
     samples_processed = 0
@@ -77,8 +93,24 @@ def train(epoch, start_time):
 
         frames = batch['frames'].to(device)
         labels = batch['label'].to(device)
+        yaws = batch['yaw']
+        yaws = torch.FloatTensor([float(yaw) for yaw in yaws]).unsqueeze(dim=1).to(device)
 
-        output = model(frames)
+        output1 = model(frames)
+        output2 = model2(frames)
+        output3 = model3(frames)
+
+        context = attention(yaws)
+        expert_attn = context.split(split_size=1, dim=1)
+        output1_flat = output1.view(frames.size(0), -1)
+        output2_flat = output2.view(frames.size(0), -1)
+        output3_flat = output3.view(frames.size(0), -1)
+        output1_flat = output1_flat * expert_attn[0]
+        output2_flat = output2_flat * expert_attn[1]
+        output3_flat = output3_flat * expert_attn[2]
+
+        output = (output1_flat + output2_flat + output3_flat).view(frames.size(0), 29, 10)
+
         loss = criterion(output, labels.squeeze(1))
         loss.backward()
         optimizer.step()
@@ -113,12 +145,40 @@ def train(epoch, start_time):
 @torch.no_grad()
 def validate(epoch):
     model.eval()
-    criterion = model.loss
+    criterion = model2.loss
     accuracies, losses = np.array([]), np.array([])
+    lefts, centers, rights, degrees = np.array([]), np.array([]), np.array([]), np.array([])
     for batch in val_loader:
         frames = batch['frames'].to(device)
         labels = batch['label'].to(device)
-        output = model(frames)
+        yaws = batch['yaw']
+        yaws = torch.FloatTensor([float(yaw) for yaw in yaws]).unsqueeze(dim=1).to(device)
+
+        output1 = model(frames)
+        output2 = model2(frames)
+        output3 = model3(frames)
+
+        context = attention(yaws)
+        expert_attn = context.split(split_size=1, dim=1)
+        output1_flat = output1.view(frames.size(0), -1)
+        output2_flat = output2.view(frames.size(0), -1)
+        output3_flat = output3.view(frames.size(0), -1)
+        output1_flat = output1_flat * expert_attn[0]
+        output2_flat = output2_flat * expert_attn[1]
+        output3_flat = output3_flat * expert_attn[2]
+
+        output = (output1_flat + output2_flat + output3_flat).view(frames.size(0), 29, 10)
+        for i, yaw in enumerate(yaws):
+            yaw = yaw.item()
+            left = context[i][0].item()
+            center = context[i][1].item()
+            right = context[i][2].item()
+            lefts = np.append(lefts, left)
+            centers = np.append(centers, center)
+            rights = np.append(rights, right)
+            degrees = np.append(degrees, yaw)
+            print(f"Degree: {yaw}, Left: {left:.3f}, Center: {center:.3f}, Right: {right:.3f}")
+
         loss = criterion(output, labels.squeeze(1))
 
         acc = accuracy(output, labels)
@@ -132,6 +192,14 @@ def validate(epoch):
     writer.add_scalar("val_acc", avg_acc, global_step=global_step)
     wandb.log({"val_acc": avg_acc, "val_loss": avg_loss})
     print(f"val_loss: {avg_loss:.3f}, val_acc {avg_acc:.5f}")
+
+    width = 0.4
+    indices = np.arange(len(lefts))
+    plt.bar(indices, lefts, width, color='r')
+    plt.bar(indices, centers, width, bottom=lefts, color='b')
+    plt.bar(indices, rights, width, bottom=lefts + centers, color='g')
+    # plt.bar(indices, degrees, width=width, bottom=lefts + centers + rights)
+    plt.show()
 
     return avg_acc
 
@@ -150,8 +218,8 @@ def accuracy_topk(outputs, labels, k=10):
     return correct / outputs.shape[0]
 
 
-trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-print(f"Training samples: {samples}, Trainable parameters: {trainable_params}")
+trainable_params = sum(p.numel() for p in attention.parameters() if p.requires_grad)
+print(f"Trainable parameters: {trainable_params}")
 start_time = time.time()
 best_val_acc = 0
 os.makedirs(args.checkpoint_dir, exist_ok=True)
@@ -169,5 +237,4 @@ for epoch in range(epochs):
         print(f"Saved checkpoint: {checkpoint_path}")
 
 wandb.config.parameters = trainable_params
-wandb.config.query = query
 wandb.save(checkpoint_path)
