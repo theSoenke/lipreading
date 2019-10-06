@@ -48,10 +48,10 @@ torch.backends.cudnn.benchmark = True
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 query = None  # (-20, 20)
-train_data = LRWDataset(path=args.data, num_words=args.words, query=query)
+train_data = LRWDataset(path=args.data, num_words=args.words, query=query, seed=args.seed)
 train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size, num_workers=args.workers, pin_memory=True)
-val_data = LRWDataset(path=args.data, num_words=args.words, mode='val', query=query)
-val_loader = DataLoader(val_data, shuffle=False, batch_size=batch_size * 2, num_workers=args.workers,)
+val_data = LRWDataset(path=args.data, num_words=args.words, mode='val', query=query, seed=args.seed)
+val_loader = DataLoader(val_data, shuffle=False, batch_size=batch_size * 2, num_workers=args.workers)
 samples = len(train_data)
 
 writer = SummaryWriter(log_dir=os.path.join(args.tensorboard_logdir, current_time))

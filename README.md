@@ -3,6 +3,7 @@
 
 ## Setup
 - Install [ctcdecode](https://github.com/parlance/ctcdecode)
+- `conda env create -f environment.yml`
 
 ## Preprocess
 
