@@ -17,6 +17,9 @@ class WandbLogger(LightningLoggerBase):
     def log_metrics(self, metrics, step_num):
         wandb.log(metrics)
 
+    def log(self, key, value):
+        wandb.config[key] = value
+
     def save(self):
         pass
 
