@@ -13,7 +13,7 @@ from src.models.resnet import ResNetModel
 
 
 class LRWModel(pl.LightningModule):
-    def __init__(self, hparams, query=None, resnet_layers=18, resnet_pretrained=False):
+    def __init__(self, hparams, query=None):
         super().__init__()
         self.hparams = hparams
         self.query = query
@@ -24,7 +24,7 @@ class LRWModel(pl.LightningModule):
             nn.ReLU(True),
             nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
         )
-        self.resnet = ResNetModel(layers=resnet_layers, pretrained=resnet_pretrained)
+        self.resnet = ResNetModel(layers=hparams.resnet, pretrained=hparams.pretrained)
         self.lstm = nn.LSTM(
             input_size=256,
             hidden_size=256,

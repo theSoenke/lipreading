@@ -34,7 +34,7 @@ class LRWDataset(Dataset):
         self.video_clips = VideoClips(
             video_paths,
             clip_length_in_frames=29,
-            frames_between_clips=1,
+            # num_workers=4,
         )
         self.estimate_pose = estimate_pose
 

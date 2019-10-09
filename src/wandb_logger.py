@@ -21,6 +21,8 @@ class WandbLogger(LightningLoggerBase):
         wandb.config[key] = value
 
     def save(self):
+        # TODO get and save latest checkpoint
+        # wandb.save(checkpoint_path)
         pass
 
     @rank_zero_only
