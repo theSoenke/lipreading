@@ -11,7 +11,7 @@ from src.wandb_logger import WandbLogger
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', required=True)
-    parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints')
+    parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints/lrw')
     parser.add_argument("--checkpoint", type=str)
     parser.add_argument("--batch_size", type=int, default=24)
     parser.add_argument("--epochs", type=int, default=50)
