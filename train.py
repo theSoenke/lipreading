@@ -13,6 +13,7 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints')
     parser.add_argument("--checkpoint", type=str)
     parser.add_argument("--batch_size", type=int, default=24)
+    parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
     parser.add_argument("--words", type=int, default=10)
@@ -54,7 +55,7 @@ if __name__ == "__main__":
     trainer = Trainer(
         logger=logger,
         gpus=1,
-        max_nb_epochs=20,
+        max_nb_epochs=args.epochs,
         early_stop_callback=early_stop_callback,
         checkpoint_callback=checkpoint_callback,
     )
