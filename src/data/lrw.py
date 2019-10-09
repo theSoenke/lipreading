@@ -3,12 +3,12 @@ import random
 
 import psutil
 import torch
+import torchvision
 import torchvision.transforms.functional as F
 from PIL import Image
 from tables import Float32Col, Int32Col, IsDescription, StringCol, open_file
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
-from torchvision.datasets.video_utils import VideoClips
 from tqdm import tqdm
 
 from src.data.transforms import StatefulRandomHorizontalFlip
@@ -27,15 +27,10 @@ class LRWDataset(Dataset):
     def __init__(self, path, num_words=500, mode="train", augmentation=False, estimate_pose=False, seed=42, query=None):
         self.seed = seed
         self.num_words = num_words
-        self.query = query  # FIXME
+        self.query = query
         self.augmentation = augmentation if mode == 'train' else False
         self.poses = self.head_poses(mode, query)
-        video_paths, self.files, self.labels, self.words = self.build_file_list(path, mode)
-        self.video_clips = VideoClips(
-            video_paths,
-            clip_length_in_frames=29,
-            # num_workers=4,
-        )
+        self.video_paths, self.files, self.labels, self.words = self.build_file_list(path, mode)
         self.estimate_pose = estimate_pose
 
     def head_poses(self, mode, query):
@@ -91,12 +86,12 @@ class LRWDataset(Dataset):
         return temporalVolume
 
     def __len__(self):
-        return self.video_clips.num_clips()
+        return len(self.video_paths)
 
     def __getitem__(self, idx):
         label = self.labels[idx]
         file = self.files[idx]
-        video, _, _, _ = self.video_clips.get_clip(idx)  # (Tensor[T, H, W, C])
+        video, _, _ = torchvision.io.read_video(self.video_paths[idx])  # (Tensor[T, H, W, C])
         if self.estimate_pose:
             angle_frame = video[14].permute(2, 0, 1)
         else:
