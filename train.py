@@ -1,7 +1,7 @@
 import argparse
 
 from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import EarlyStopping
 
 from src.checkpoint import Checkpoint, load_checkpoint
 from src.models.lrw_model import LRWModel
@@ -23,13 +23,21 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    checkpoint_callback = ModelCheckpoint(
+    checkpoint_callback = Checkpoint(
         filepath=args.checkpoint_dir,
         save_best_only=True,
         verbose=True,
         monitor='val_acc',
-        mode='min',
+        mode='max',
         prefix=f"lrw_{args.words}"
+    )
+
+    early_stop_callback = EarlyStopping(
+        monitor='val_acc',
+        min_delta=0.00,
+        patience=10,
+        verbose=True,
+        mode='max'
     )
 
     query = None if args.query == None else [float(x) for x in args.query.split(",")]
@@ -46,8 +54,9 @@ if __name__ == "__main__":
     trainer = Trainer(
         logger=logger,
         gpus=1,
+        max_nb_epochs=20,
+        early_stop_callback=early_stop_callback,
         checkpoint_callback=checkpoint_callback,
-        # fast_dev_run=True,
     )
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Trainable parameters: {trainable_params}")
