@@ -3,7 +3,7 @@ import argparse
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from src.checkpoint import load_checkpoint
+from src.checkpoint import Checkpoint, load_checkpoint
 from src.models.lrw_model import LRWModel
 from src.wandb_logger import WandbLogger
 
@@ -57,3 +57,4 @@ if __name__ == "__main__":
         load_checkpoint(args.checkpoint, model, optimizer=None)
 
     trainer.fit(model)
+    logger.save_file(checkpoint_callback.latest_checkpoint_path)
