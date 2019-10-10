@@ -21,5 +21,4 @@ dependencies:
       # - face_alignment==1.0.0
       - wandb
       - pillow-simd
-      # - pytorch-lightning
-      - git+https://github.com/williamFalcon/pytorch-lightning.git
+      - pytorch-lightning==0.5.2
