@@ -102,7 +102,7 @@ class LRWDataset(Dataset):
             'label': torch.LongTensor([label]),
             'word': self.words[label],
             'file': self.files[idx],
-            'yaw': self.poses[file],
+            'yaw': torch.FloatTensor([self.poses[file]]),
             'angle_frame': angle_frame,
         }
         return sample

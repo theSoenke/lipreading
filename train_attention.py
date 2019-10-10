@@ -22,12 +22,12 @@ from src.models.model import Model
 parser = argparse.ArgumentParser()
 parser.add_argument('--data', required=True)
 parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints')
-parser.add_argument("--checkpoint", type=str)
-parser.add_argument("--checkpoint2", type=str)
-parser.add_argument("--checkpoint3", type=str)
+parser.add_argument("--checkpoint_left", type=str)
+parser.add_argument("--checkpoint_center", type=str)
+parser.add_argument("--checkpoint_right", type=str)
 parser.add_argument("--tensorboard_logdir", type=str, default='data/tensorboard')
 parser.add_argument("--epochs", type=int, default=50)
-parser.add_argument("--batch_size", type=int, default=24)
+parser.add_argument("--batch_size", type=int, default=12)
 parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--weight_decay", type=float, default=1e-5)
 parser.add_argument("--words", type=int, default=10)
@@ -41,7 +41,7 @@ args = parser.parse_args()
 batch_size = args.batch_size
 epochs = args.epochs
 log_interval = args.log_interval
-pretrained = False if args.checkpoint != None else args.pretrained
+pretrained = False
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
 
 torch.manual_seed(args.seed)
@@ -61,13 +61,11 @@ samples = len(train_data)
 
 writer = SummaryWriter(log_dir=os.path.join(args.tensorboard_logdir, current_time))
 model = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretrained=pretrained).to(device)
-load_checkpoint(args.checkpoint, model, optimizer=None)
+load_checkpoint(args.checkpoint_center, model, optimizer=None)
 wandb.init(project="lipreading")
 wandb.config.update(args)
 wandb.watch(model)
 
-for param in model.parameters():
-    param.requires_grad = False
 
 num_experts = 3
 attention = Attention(attention_dim=40, num_experts=num_experts).to(device)
@@ -75,9 +73,18 @@ attention = Attention(attention_dim=40, num_experts=num_experts).to(device)
 optimizer = optim.Adam(attention.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
 model2 = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretrained=pretrained).to(device)
-load_checkpoint(args.checkpoint2, model2, optimizer=None)
+load_checkpoint(args.checkpoint_left, model2, optimizer=None)
 model3 = Model(num_classes=args.words,  resnet_layers=args.resnet, resnet_pretrained=pretrained).to(device)
-load_checkpoint(args.checkpoint3, model3, optimizer=None)
+load_checkpoint(args.checkpoint_right, model3, optimizer=None)
+
+for param in model.parameters():
+    param.requires_grad = False
+
+for param in model2.parameters():
+    param.requires_grad = False
+
+for param in model3.parameters():
+    param.requires_grad = False
 
 
 def train(epoch, start_time):
@@ -93,8 +100,7 @@ def train(epoch, start_time):
 
         frames = batch['frames'].to(device)
         labels = batch['label'].to(device)
-        yaws = batch['yaw']
-        yaws = torch.FloatTensor([float(yaw) for yaw in yaws]).unsqueeze(dim=1).to(device)
+        yaws = batch['yaw'].to(device)
 
         output1 = model(frames)
         output2 = model2(frames)
@@ -151,8 +157,7 @@ def validate(epoch):
     for batch in val_loader:
         frames = batch['frames'].to(device)
         labels = batch['label'].to(device)
-        yaws = batch['yaw']
-        yaws = torch.FloatTensor([float(yaw) for yaw in yaws]).unsqueeze(dim=1).to(device)
+        yaws = batch['yaw'].to(device)
 
         output1 = model(frames)
         output2 = model2(frames)
