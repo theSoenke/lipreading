@@ -24,9 +24,10 @@ def build_word_list(directory, num_words, seed):
 
 
 class LRWDataset(Dataset):
-    def __init__(self, path, num_words=500, mode="train", augmentation=False, estimate_pose=False, seed=42, query=None):
+    def __init__(self, path, num_words=500, in_channels=1, mode="train", augmentation=False, estimate_pose=False, seed=42, query=None):
         self.seed = seed
         self.num_words = num_words
+        self.in_channels = in_channels
         self.query = query
         self.augmentation = augmentation if mode == 'train' else False
         self.poses = self.head_poses(mode, query)
@@ -63,7 +64,7 @@ class LRWDataset(Dataset):
         return paths, file_list, labels, words
 
     def build_tensor(self, frames):
-        temporalVolume = torch.FloatTensor(1, 29, 112, 112)
+        temporalVolume = torch.FloatTensor(29, self.in_channels, 112, 112)
         if(self.augmentation):
             augmentations = transforms.Compose([
                 StatefulRandomHorizontalFlip(0.5),
@@ -71,18 +72,29 @@ class LRWDataset(Dataset):
         else:
             augmentations = transforms.Compose([])
 
-        for i in range(0, 29):
-            frame = frames[i].permute(2, 0, 1)  # (Tensor[C, H, W])
-            result = transforms.Compose([
+        if self.in_channels == 1:
+            transform = transforms.Compose([
                 transforms.ToPILImage(),
                 transforms.CenterCrop((112, 112)),
                 augmentations,
                 transforms.Grayscale(num_output_channels=1),
                 transforms.ToTensor(),
                 transforms.Normalize([0.4161, ], [0.1688, ]),
-            ])(frame)
-            temporalVolume[0][i] = result
+            ])
+        elif self.in_channels == 3:
+            transform = transforms.Compose([
+                transforms.ToPILImage(),
+                transforms.CenterCrop((112, 112)),
+                augmentations,
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            ])
 
+        for i in range(0, 29):
+            frame = frames[i].permute(2, 0, 1)  # (C, H, W)
+            temporalVolume[i] = transform(frame)
+
+        temporalVolume = temporalVolume.transpose(1, 0)  # (C, D, H, W)
         return temporalVolume
 
     def __len__(self):
@@ -114,7 +126,7 @@ def extract_angles(path, output_path, num_workers, seed):
 
     words = None
     for mode in ['train', 'val']:
-        dataset = LRWDataset(directory=path, num_words=500, mode=mode, estimate_pose=True, seed=seed)
+        dataset = LRWDataset(path=path, num_words=500, mode=mode, estimate_pose=True, seed=seed)
         if words != None:
             assert words == dataset.words
         words = dataset.words
@@ -157,7 +169,7 @@ def preprocess(path, output, num_words, augmentation=False, workers=None):
     words = None
     for mode in ['train', 'val', 'test']:
         print("Generating %s data" % mode)
-        dataset = LRWDataset(directory=path, num_words=num_words, mode=mode, augmentation=augmentation, estimate_pose=True)
+        dataset = LRWDataset(path=path, num_words=num_words, mode=mode, augmentation=augmentation, estimate_pose=True)
         if words != None:
             assert words == dataset.words
         words = dataset.words

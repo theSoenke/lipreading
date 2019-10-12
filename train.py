@@ -48,6 +48,7 @@ if __name__ == "__main__":
     args.pretrained = False if args.checkpoint != None else args.pretrained
     model = LRWModel(
         hparams=args,
+        in_channels=1,
         query=query,
     )
     logger = WandbLogger(

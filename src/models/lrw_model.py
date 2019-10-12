@@ -13,13 +13,14 @@ from src.models.resnet import ResNetModel
 
 
 class LRWModel(pl.LightningModule):
-    def __init__(self, hparams, query=None):
+    def __init__(self, hparams, in_channels=1, query=None):
         super().__init__()
         self.hparams = hparams
+        self.in_channels = in_channels
         self.query = query
 
         self.frontend = nn.Sequential(
-            nn.Conv3d(1, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
+            nn.Conv3d(self.in_channels, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
             nn.BatchNorm3d(64),
             nn.ReLU(True),
             nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
@@ -76,19 +77,39 @@ class LRWModel(pl.LightningModule):
 
     @pl.data_loader
     def train_dataloader(self):
-        train_data = LRWDataset(path=self.hparams.data, num_words=self.hparams.words, query=self.query, seed=self.hparams.seed)
+        train_data = LRWDataset(
+            path=self.hparams.data,
+            num_words=self.hparams.words,
+            in_channels=self.in_channels,
+            query=self.query,
+            seed=self.hparams.seed
+        )
         train_loader = DataLoader(train_data, shuffle=True, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers, pin_memory=True)
         return train_loader
 
     @pl.data_loader
     def val_dataloader(self):
-        val_data = LRWDataset(path=self.hparams.data, num_words=self.hparams.words, mode='val', query=self.query, seed=self.hparams.seed)
+        val_data = LRWDataset(
+            path=self.hparams.data,
+            num_words=self.hparams.words,
+            in_channels=self.in_channels,
+            mode='val',
+            query=self.query,
+            seed=self.hparams.seed
+        )
         val_loader = DataLoader(val_data, shuffle=False, batch_size=self.hparams.batch_size * 2, num_workers=self.hparams.workers)
         return val_loader
 
     @pl.data_loader
     def test_dataloader(self):
-        train_data = LRWDataset(path=self.hparams.data, num_words=self.hparams.words, mode='train', query=self.query, seed=self.hparams.seed)
+        train_data = LRWDataset(
+            path=self.hparams.data,
+            num_words=self.hparams.words,
+            in_channels=self.in_channels,
+            mode='train',
+            query=self.query,
+            seed=self.hparams.seed
+        )
         train_loader = DataLoader(train_data, shuffle=False, batch_size=self.hparams.batch_size * 2, num_workers=self.hparams.workers)
         return train_loader
 
