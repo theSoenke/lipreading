@@ -169,7 +169,7 @@ def preprocess(path, output, num_words, augmentation=False, workers=None):
     words = None
     for mode in ['train', 'val', 'test']:
         print("Generating %s data" % mode)
-        dataset = LRWDataset(path=path, num_words=num_words, mode=mode, augmentation=augmentation, estimate_pose=True)
+        dataset = LRWDataset(path=path, num_words=num_words, mode=mode, augmentations=augmentation, estimate_pose=True)
         if words != None:
             assert words == dataset.words
         words = dataset.words

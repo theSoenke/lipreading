@@ -13,11 +13,14 @@ from src.models.resnet import ResNetModel
 
 
 class LRWModel(pl.LightningModule):
-    def __init__(self, hparams, in_channels=1, query=None):
+    def __init__(self, hparams, in_channels=1, augmentations=False, query=None):
         super().__init__()
         self.hparams = hparams
         self.in_channels = in_channels
+        self.augmentations = augmentations
         self.query = query
+
+        self.best_val_acc = 0
 
         self.frontend = nn.Sequential(
             nn.Conv3d(self.in_channels, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
@@ -65,7 +68,14 @@ class LRWModel(pl.LightningModule):
     def validation_end(self, outputs):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         avg_acc = torch.stack([x['val_acc'] for x in outputs]).mean()
-        logs = {'val_loss': avg_loss, 'val_acc': avg_acc}
+
+        if self.best_val_acc < avg_acc:
+            self.best_val_acc = avg_acc
+        logs = {
+            'val_loss': avg_loss,
+            'val_acc': avg_acc,
+            'best_val_acc': self.best_val_acc
+        }
         return {
             'val_loss': avg_loss,
             'val_acc': avg_acc,
@@ -81,7 +91,7 @@ class LRWModel(pl.LightningModule):
             path=self.hparams.data,
             num_words=self.hparams.words,
             in_channels=self.in_channels,
-            augmentations=False,
+            augmentations=self.augmentations,
             query=self.query,
             seed=self.hparams.seed
         )

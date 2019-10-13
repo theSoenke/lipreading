@@ -1,13 +1,15 @@
 import os
 
+import matplotlib.pyplot as plt
 import pytorch_lightning as pl
 import torch
+from torch import optim
+from torch.utils.data import DataLoader
+
 from src.checkpoint import load_checkpoint
 from src.data.lrw import LRWDataset
 from src.models.attention import Attention
 from src.models.lrw_model import LRWModel
-from torch import optim
-from torch.utils.data import DataLoader
 
 
 class ExpertModel(pl.LightningModule):
@@ -68,9 +70,18 @@ class ExpertModel(pl.LightningModule):
 
         loss = self.loss(output, labels.squeeze(1))
         acc = LRWModel.accuracy(output, labels)
-        return {'val_loss': loss, 'val_acc': acc}
+        return {
+            'val_loss': loss,
+            'val_acc': acc,
+            'yaws': yaws,
+            'left_attn': attn[0],
+            'center_attn': attn[1],
+            'right_attn': attn[2],
+        }
 
     def validation_end(self, outputs):
+        # self.visualize_attention(outputs)
+
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         avg_acc = torch.stack([x['val_acc'] for x in outputs]).mean()
         logs = {'val_loss': avg_loss, 'val_acc': avg_acc}
@@ -79,6 +90,17 @@ class ExpertModel(pl.LightningModule):
             'val_acc': avg_acc,
             'log': logs,
         }
+
+    def visualize_attention(self, outputs):
+        yaws = torch.cat([x['yaws'] for x in outputs]).squeeze(dim=1).cpu().numpy()
+        left_attn = torch.cat([x['left_attn'] for x in outputs]).squeeze(dim=1).cpu().numpy()
+        center_attn = torch.cat([x['center_attn'] for x in outputs]).squeeze(dim=1).cpu().numpy()
+        right_attn = torch.cat([x['right_attn'] for x in outputs]).squeeze(dim=1).cpu().numpy()
+
+        plt.scatter(yaws, left_attn)
+        plt.scatter(yaws, center_attn)
+        plt.scatter(yaws, right_attn)
+        plt.show()
 
     def configure_optimizers(self):
         return optim.Adam(self.attention.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
