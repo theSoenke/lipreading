@@ -50,7 +50,7 @@ class LRWModel(pl.LightningModule):
         labels = batch['label']
         output = self.forward(frames)
         loss = self.loss(output, labels.squeeze(1))
-        acc = self.accuracy(output, labels)
+        acc = LRWModel.accuracy(output, labels)
         logs = {'train_loss': loss, 'train_acc': acc}
         return {'loss': loss, 'acc': acc, 'log': logs}
 
@@ -59,7 +59,7 @@ class LRWModel(pl.LightningModule):
         labels = batch['label']
         output = self.forward(frames)
         loss = self.loss(output, labels.squeeze(1))
-        acc = self.accuracy(output, labels)
+        acc = LRWModel.accuracy(output, labels)
         return {'val_loss': loss, 'val_acc': acc}
 
     def validation_end(self, outputs):
@@ -81,6 +81,7 @@ class LRWModel(pl.LightningModule):
             path=self.hparams.data,
             num_words=self.hparams.words,
             in_channels=self.in_channels,
+            augmentations=False,
             query=self.query,
             seed=self.hparams.seed
         )
@@ -100,20 +101,20 @@ class LRWModel(pl.LightningModule):
         val_loader = DataLoader(val_data, shuffle=False, batch_size=self.hparams.batch_size * 2, num_workers=self.hparams.workers)
         return val_loader
 
-    @pl.data_loader
-    def test_dataloader(self):
-        train_data = LRWDataset(
-            path=self.hparams.data,
-            num_words=self.hparams.words,
-            in_channels=self.in_channels,
-            mode='train',
-            query=self.query,
-            seed=self.hparams.seed
-        )
-        train_loader = DataLoader(train_data, shuffle=False, batch_size=self.hparams.batch_size * 2, num_workers=self.hparams.workers)
-        return train_loader
+    # @pl.data_loader
+    # def test_dataloader(self):
+    #     test_data = LRWDataset(
+    #         path=self.hparams.data,
+    #         num_words=self.hparams.words,
+    #         in_channels=self.in_channels,
+    #         mode='test',
+    #         query=self.query,
+    #         seed=self.hparams.seed
+    #     )
+    #     test_loader = DataLoader(test_data, shuffle=False, batch_size=self.hparams.batch_size * 2, num_workers=self.hparams.workers)
+    #     return test_loader
 
-    def accuracy(self, output, labels):
+    def accuracy(output, labels):
         sums = torch.sum(output, dim=1)
         _, predicted = sums.max(dim=1)
         correct = (predicted == labels.squeeze(dim=1)).sum().type(torch.FloatTensor)

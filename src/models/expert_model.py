@@ -2,16 +2,12 @@ import os
 
 import pytorch_lightning as pl
 import torch
-import torchvision.transforms as transforms
-from torch import nn, optim
-from torch.nn import functional as F
-from torch.utils.data import DataLoader
-
 from src.checkpoint import load_checkpoint
 from src.data.lrw import LRWDataset
 from src.models.attention import Attention
 from src.models.lrw_model import LRWModel
-from src.models.nll_sequence_loss import NLLSequenceLoss
+from torch import optim
+from torch.utils.data import DataLoader
 
 
 class ExpertModel(pl.LightningModule):
@@ -55,7 +51,7 @@ class ExpertModel(pl.LightningModule):
         output = (left_flat + center_flat + right_flat).view(frames.size(0), 29, 10)
 
         loss = self.loss(output, labels.squeeze(1))
-        acc = self.accuracy(output, labels)
+        acc = LRWModel.accuracy(output, labels)
         logs = {'train_loss': loss, 'train_acc': acc}
         return {'loss': loss, 'acc': acc, 'log': logs}
 
@@ -71,7 +67,7 @@ class ExpertModel(pl.LightningModule):
         output = (left_flat + center_flat + right_flat).view(frames.size(0), 29, 10)
 
         loss = self.loss(output, labels.squeeze(1))
-        acc = self.accuracy(output, labels)
+        acc = LRWModel.accuracy(output, labels)
         return {'val_loss': loss, 'val_acc': acc}
 
     def validation_end(self, outputs):
@@ -98,15 +94,3 @@ class ExpertModel(pl.LightningModule):
         val_data = LRWDataset(path=self.hparams.data, num_words=self.hparams.words, mode='val', seed=self.hparams.seed)
         val_loader = DataLoader(val_data, shuffle=False, batch_size=self.hparams.batch_size * 2, num_workers=self.hparams.workers)
         return val_loader
-
-    @pl.data_loader
-    def test_dataloader(self):
-        train_data = LRWDataset(path=self.hparams.data, num_words=self.hparams.words, mode='train', seed=self.hparams.seed)
-        train_loader = DataLoader(train_data, shuffle=False, batch_size=self.hparams.batch_size * 2, num_workers=self.hparams.workers)
-        return train_loader
-
-    def accuracy(self, output, labels):
-        sums = torch.sum(output, dim=1)
-        _, predicted = sums.max(dim=1)
-        correct = (predicted == labels.squeeze(dim=1)).sum().type(torch.FloatTensor)
-        return correct / output.shape[0]

@@ -24,12 +24,12 @@ def build_word_list(directory, num_words, seed):
 
 
 class LRWDataset(Dataset):
-    def __init__(self, path, num_words=500, in_channels=1, mode="train", augmentation=False, estimate_pose=False, seed=42, query=None):
+    def __init__(self, path, num_words=500, in_channels=1, mode="train", augmentations=False, estimate_pose=False, seed=42, query=None):
         self.seed = seed
         self.num_words = num_words
         self.in_channels = in_channels
         self.query = query
-        self.augmentation = augmentation if mode == 'train' else False
+        self.augmentation = augmentations if mode == 'train' else False
         self.poses = self.head_poses(mode, query)
         self.video_paths, self.files, self.labels, self.words = self.build_file_list(path, mode)
         self.estimate_pose = estimate_pose
