@@ -1,6 +1,7 @@
 import argparse
 
 import psutil
+import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import EarlyStopping
 
@@ -14,7 +15,7 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints/lrw')
     parser.add_argument("--checkpoint", type=str)
     parser.add_argument("--batch_size", type=int, default=24)
-    parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
     parser.add_argument("--words", type=int, default=10)
@@ -24,6 +25,11 @@ if __name__ == "__main__":
     parser.add_argument("--pretrained", default=True, type=lambda x: (str(x).lower() == 'true'))
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
+
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    # torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = True
 
     checkpoint_callback = Checkpoint(
         filepath=args.checkpoint_dir,

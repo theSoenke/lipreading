@@ -1,6 +1,7 @@
 import argparse
 
 import psutil
+import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import EarlyStopping
 
@@ -24,6 +25,11 @@ if __name__ == "__main__":
     parser.add_argument("--resnet", type=int, default=18)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
+
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    # torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = True
 
     checkpoint_callback = Checkpoint(
         filepath=args.checkpoint_dir,
