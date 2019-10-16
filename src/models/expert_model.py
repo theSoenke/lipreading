@@ -33,6 +33,7 @@ class ExpertModel(pl.LightningModule):
         self.attention = Attention(attention_dim=40, num_experts=3)
 
         self.epoch = 0
+        self.best_val_acc = 0
 
     def forward(self, x, yaws):
         left = self.left_expert(x)
@@ -67,6 +68,7 @@ class ExpertModel(pl.LightningModule):
         output, attn = self.forward(frames, yaws)
         loss = self.loss(output, labels.squeeze(1))
         acc = LRWModel.accuracy(output, labels)
+
         return {
             'val_loss': loss,
             'val_acc': acc,
@@ -77,14 +79,43 @@ class ExpertModel(pl.LightningModule):
         }
 
     def validation_end(self, outputs):
-        # self.visualize_attention(outputs)
+        self.visualize_attention(outputs)
 
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         avg_acc = torch.stack([x['val_acc'] for x in outputs]).mean()
-        logs = {'val_loss': avg_loss, 'val_acc': avg_acc}
+        if self.best_val_acc < avg_acc:
+            self.best_val_acc = avg_acc
+        logs = {
+            'val_loss': avg_loss,
+            'val_acc': avg_acc,
+            'best_val_acc': self.best_val_acc,
+            }
         return {
             'val_loss': avg_loss,
             'val_acc': avg_acc,
+            'log': logs,
+        }
+
+    def test_step(self, batch, batch_nb):
+        frames = batch['frames']
+        labels = batch['label']
+        yaws = batch['yaw']
+
+        output, _ = self.forward(frames, yaws)
+        loss = self.loss(output, labels.squeeze(1))
+        acc = LRWModel.accuracy(output, labels)
+        return {
+            'test_loss': loss,
+            'test_acc': acc,
+        }
+
+    def test_end(self, outputs):
+        avg_loss = torch.stack([x['test_loss'] for x in outputs]).mean()
+        avg_acc = torch.stack([x['test_acc'] for x in outputs]).mean()
+        logs = {'test_loss': avg_loss, 'test_acc': avg_acc}
+        return {
+            'test_loss': avg_loss,
+            'test_acc': avg_acc,
             'log': logs,
         }
 
@@ -94,10 +125,30 @@ class ExpertModel(pl.LightningModule):
         center_attn = torch.cat([x['center_attn'] for x in outputs]).squeeze(dim=1).cpu().numpy()
         right_attn = torch.cat([x['right_attn'] for x in outputs]).squeeze(dim=1).cpu().numpy()
 
-        plt.scatter(yaws, left_attn)
-        plt.scatter(yaws, center_attn)
-        plt.scatter(yaws, right_attn)
-        plt.show()
+        # left_buckets, right_buckets = {}, {}
+        # for i in range(len(yaws)):
+        #     degree = int(yaws[i])
+        #     if degree in left_buckets:
+        #         left_buckets[degree].append(left_attn[i])
+        #     else:
+        #         left_buckets[degree] = [left_attn[i]]
+
+        #     if degree in right_buckets:
+        #         right_buckets[degree].append(right_attn[i])
+        #     else:
+        #         right_buckets[degree] = [right_attn[i]]
+
+        size = 40
+        plt.scatter(yaws, left_attn, s=size, label='left expert')
+        plt.scatter(yaws, center_attn, s=size, label='center expert')
+        plt.scatter(yaws, right_attn, s=size, label='right expert')
+        plt.legend(loc='upper center', ncol=3, bbox_to_anchor=(0.5, 1.1))
+        plt.xlabel('Degree')
+        plt.ylabel('Attention')
+
+        plt.savefig(f"attention_seed_{self.hparams.seed}_epoch_{self.epoch}.png")
+        plt.clf()
+        self.epoch += 1
 
     def configure_optimizers(self):
         return optim.Adam(self.attention.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
