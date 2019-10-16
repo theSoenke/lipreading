@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -eo pipefail
+
 data=$1
 batch_size=${2:-64}
 
@@ -21,7 +23,7 @@ for seed in {0..10}; do
 
     for query in "-90,-20" "-20,20" "20,90"; do
         echo "Train expert for query: ${query}"
-        python3 train.py --data $data --words 10 --seed $seed --query $query --checkpoint data/checkpoints/lrw/best_seed_${seed}.pkl --batch_size $batch_size
+        python3 train.py --data $data --words 10 --seed $seed --query " ${query}" --checkpoint data/checkpoints/lrw/best_seed_${seed}.pkl --batch_size $batch_size
         mv data/checkpoints/lrw/lrw_*.ckpt data/checkpoints/lrw/expert_seed_${seed}_${query}.pkl
     done
 

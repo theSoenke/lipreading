@@ -42,7 +42,7 @@ if __name__ == "__main__":
         mode='max'
     )
 
-    query = None if args.query == None else [float(x) for x in args.query.split(",")]
+    query = None if args.query == None else [float(x) for x in args.query.strip().split(",")]
     assert query == None or len(query) == 2, "--query param not in format -20,20"
     args.workers = psutil.cpu_count(logical=False) if args.workers == None else args.workers
     args.pretrained = False if args.checkpoint != None else args.pretrained

@@ -14,11 +14,12 @@ dependencies:
   - av=6.2.0
   - pip
   - psutil
+  - matplotlib=3.1.1
   - pip:
       - opencv-python==4.1.1.26
       - wandb
       - pytorch-lightning==0.5.2
-      # - tensorboard==2.0.0
+      - tensorboard==2.0.0
       # - pillow-simd
       # - imutils==0.5.2
       # - dlib==19.17.0

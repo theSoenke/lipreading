@@ -16,7 +16,7 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_center", type=str, required=True)
     parser.add_argument("--checkpoint_right", type=str, required=True)
     parser.add_argument("--batch_size", type=int, default=12)
-    parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
     parser.add_argument("--words", type=int, default=10)
