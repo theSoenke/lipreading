@@ -27,6 +27,7 @@ for seed in {0..10}; do
         mv data/checkpoints/lrw/lrw_*.ckpt data/checkpoints/lrw/expert_seed_${seed}_${query}.pkl
     done
 
+    echo "Train attention layer"
     python3 train_attn.py --data $data --words 10 --seed $seed --batch_size $batch_size \
         --checkpoint_left data/checkpoints/lrw/expert_seed_${seed}_-90,-20.pkl \
         --checkpoint_center data/checkpoints/lrw/expert_seed_${seed}_-20,20.pkl \

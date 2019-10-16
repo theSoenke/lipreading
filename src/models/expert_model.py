@@ -32,26 +32,28 @@ class ExpertModel(pl.LightningModule):
         self.loss = self.center_expert.loss
         self.attention = Attention(attention_dim=40, num_experts=3)
 
+        self.epoch = 0
+
     def forward(self, x, yaws):
         left = self.left_expert(x)
         center = self.center_expert(x)
         right = self.right_expert(x)
         context = self.attention(yaws)
-        expert_attn = context.split(split_size=1, dim=1)
+        attn = context.split(split_size=1, dim=1)
 
-        return left, center, right, expert_attn
+        left_flat = left.view(x.size(0), -1) * attn[0]
+        center_flat = center.view(x.size(0), -1) * attn[1]
+        right_flat = right.view(x.size(0), -1) * attn[2]
+        output = (left_flat + center_flat + right_flat).view(x.size(0), 29, 10)
+
+        return output, attn
 
     def training_step(self, batch, batch_nb):
         frames = batch['frames']
         labels = batch['label']
         yaws = batch['yaw']
 
-        left, center, right, attn = self.forward(frames, yaws)
-        left_flat = left.view(frames.size(0), -1) * attn[0]
-        center_flat = center.view(frames.size(0), -1) * attn[1]
-        right_flat = right.view(frames.size(0), -1) * attn[2]
-        output = (left_flat + center_flat + right_flat).view(frames.size(0), 29, 10)
-
+        output, attn = self.forward(frames, yaws)
         loss = self.loss(output, labels.squeeze(1))
         acc = LRWModel.accuracy(output, labels)
         logs = {'train_loss': loss, 'train_acc': acc}
@@ -62,12 +64,7 @@ class ExpertModel(pl.LightningModule):
         labels = batch['label']
         yaws = batch['yaw']
 
-        left, center, right, attn = self.forward(frames, yaws)
-        left_flat = left.view(frames.size(0), -1) * attn[0]
-        center_flat = center.view(frames.size(0), -1) * attn[1]
-        right_flat = right.view(frames.size(0), -1) * attn[2]
-        output = (left_flat + center_flat + right_flat).view(frames.size(0), 29, 10)
-
+        output, attn = self.forward(frames, yaws)
         loss = self.loss(output, labels.squeeze(1))
         acc = LRWModel.accuracy(output, labels)
         return {
