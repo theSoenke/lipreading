@@ -8,7 +8,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('set')
     parser.add_argument('--data', required=True)
-    parser.add_argument('--output', default='data/preprocessed')
+    parser.add_argument('--output', default='data/preprocess')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--workers', type=int, default=0)
     parser.add_argument('--augmentation', help='Augment data', action='store_true')

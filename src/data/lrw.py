@@ -30,13 +30,14 @@ class LRWDataset(Dataset):
         self.in_channels = in_channels
         self.query = query
         self.augmentation = augmentations if mode == 'train' else False
-        self.poses = self.head_poses(mode, query)
+        if estimate_pose == False:
+            self.poses = self.head_poses(mode, query)
         self.video_paths, self.files, self.labels, self.words = self.build_file_list(path, mode)
         self.estimate_pose = estimate_pose
 
     def head_poses(self, mode, query):
         poses = {}
-        yaw_file = open(f"data/preprocessed/{mode}.txt", "r")
+        yaw_file = open(f"data/preprocess/{mode}.txt", "r")
         content = yaw_file.read()
         for line in content.splitlines():
             file, yaw = line.split(",")
@@ -55,7 +56,7 @@ class LRWDataset(Dataset):
             dirpath = directory + "/{}/{}".format(word, mode)
             files = os.listdir(dirpath)
             for file in files:
-                if file in self.poses:
+                if file.endswith("mp4"):
                     path = dirpath + "/{}".format(file)
                     file_list.append(file)
                     paths.append(path)
@@ -109,12 +110,17 @@ class LRWDataset(Dataset):
         else:
             angle_frame = 0
         frames = self.build_tensor(video)
+        if self.estimate_pose:
+            yaw = 0
+        else:
+            yaw = self.poses[file]
+
         sample = {
             'frames': frames,
             'label': torch.LongTensor([label]),
             'word': self.words[label],
             'file': self.files[idx],
-            'yaw': torch.FloatTensor([self.poses[file]]),
+            'yaw': torch.FloatTensor([yaw]),
             'angle_frame': angle_frame,
         }
         return sample
@@ -125,7 +131,7 @@ def extract_angles(path, output_path, num_workers, seed):
     head_pose = HeadPose()
 
     words = None
-    for mode in ['train', 'val']:
+    for mode in ['test']:
         dataset = LRWDataset(path=path, num_words=500, mode=mode, estimate_pose=True, seed=seed)
         if words != None:
             assert words == dataset.words

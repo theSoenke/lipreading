@@ -34,7 +34,7 @@ class HeadPose():
     def predict(self, image):
         if isinstance(image, torch.Tensor) and len(image.shape) == 4:
             data = torch.stack([self.transform(transforms.functional.to_pil_image(img)) for img in image])
-        if isinstance(image, torch.Tensor):
+        elif isinstance(image, torch.Tensor):
             data = self.transform(transforms.functional.to_pil_image(image))
         elif isinstance(image, str):
             image = Image.open(image)
