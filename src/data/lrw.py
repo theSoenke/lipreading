@@ -57,6 +57,8 @@ class LRWDataset(Dataset):
             files = os.listdir(dirpath)
             for file in files:
                 if file.endswith("mp4"):
+                    if self.poses != None and file not in self.poses:
+                        continue
                     path = dirpath + "/{}".format(file)
                     file_list.append(file)
                     paths.append(path)
@@ -131,7 +133,7 @@ def extract_angles(path, output_path, num_workers, seed):
     head_pose = HeadPose()
 
     words = None
-    for mode in ['test']:
+    for mode in ['train', 'val', 'test']:
         dataset = LRWDataset(path=path, num_words=500, mode=mode, estimate_pose=True, seed=seed)
         if words != None:
             assert words == dataset.words
