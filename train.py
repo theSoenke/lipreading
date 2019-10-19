@@ -67,6 +67,7 @@ if __name__ == "__main__":
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Trainable parameters: {trainable_params}")
     logger.log('parameters', trainable_params)
+    logger.log_hyperparams(args)
 
     if args.checkpoint != None:
         load_checkpoint(args.checkpoint, model, optimizer=None)

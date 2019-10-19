@@ -59,6 +59,7 @@ if __name__ == "__main__":
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Trainable parameters: {trainable_params}")
     logger.log('parameters', trainable_params)
+    logger.log_hyperparams(args)
 
     logs = trainer.validate(model)
     print(f"Initial expert val_acc: {logs['val_acc']:.4f}")
