@@ -1,6 +1,5 @@
 import os
 
-import pytorch_lightning as pl
 import torch
 import torchvision.transforms as transforms
 from torch import nn, optim
@@ -10,9 +9,10 @@ from torch.utils.data import DataLoader
 from src.data.lrw import LRWDataset
 from src.models.nll_sequence_loss import NLLSequenceLoss
 from src.models.resnet import ResNetModel
+from src.trainer.module import Module
 
 
-class LRWModel(pl.LightningModule):
+class LRWModel(Module):
     def __init__(self, hparams, in_channels=1, augmentations=False, query=None):
         super().__init__()
         self.hparams = hparams
@@ -48,7 +48,7 @@ class LRWModel(pl.LightningModule):
         x = self.softmax(x)
         return x
 
-    def training_step(self, batch, batch_nb):
+    def training_step(self, batch):
         frames = batch['frames']
         labels = batch['label']
         output = self.forward(frames)
@@ -57,7 +57,7 @@ class LRWModel(pl.LightningModule):
         logs = {'train_loss': loss, 'train_acc': acc}
         return {'loss': loss, 'acc': acc, 'log': logs}
 
-    def validation_step(self, batch, batch_nb):
+    def validation_step(self, batch):
         frames = batch['frames']
         labels = batch['label']
         output = self.forward(frames)
@@ -85,7 +85,6 @@ class LRWModel(pl.LightningModule):
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
 
-    @pl.data_loader
     def train_dataloader(self):
         train_data = LRWDataset(
             path=self.hparams.data,
@@ -98,7 +97,6 @@ class LRWModel(pl.LightningModule):
         train_loader = DataLoader(train_data, shuffle=True, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers, pin_memory=True)
         return train_loader
 
-    @pl.data_loader
     def val_dataloader(self):
         val_data = LRWDataset(
             path=self.hparams.data,
@@ -111,7 +109,6 @@ class LRWModel(pl.LightningModule):
         val_loader = DataLoader(val_data, shuffle=False, batch_size=self.hparams.batch_size * 2, num_workers=self.hparams.workers)
         return val_loader
 
-    # @pl.data_loader
     # def test_dataloader(self):
     #     test_data = LRWDataset(
     #         path=self.hparams.data,

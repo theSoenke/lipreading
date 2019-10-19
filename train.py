@@ -2,12 +2,13 @@ import argparse
 
 import psutil
 import torch
-from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import EarlyStopping
 
-from src.checkpoint import Checkpoint, load_checkpoint
+from src.checkpoint import load_checkpoint
 from src.models.lrw_model import LRWModel
-from src.wandb_logger import WandbLogger
+from src.trainer.early_stopping import EarlyStopping
+from src.trainer.model_checkpoint import ModelCheckpoint
+from src.trainer.trainer import Trainer
+from src.trainer.wandb_logger import WandbLogger
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -26,15 +27,9 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
-    # torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = True
-
-    checkpoint_callback = Checkpoint(
-        filepath=args.checkpoint_dir,
+    checkpoint_callback = ModelCheckpoint(
+        directory=args.checkpoint_dir,
         save_best_only=True,
-        verbose=True,
         monitor='val_acc',
         mode='max',
         prefix=f"lrw_{args.words}"
@@ -44,7 +39,6 @@ if __name__ == "__main__":
         monitor='val_acc',
         min_delta=0.00,
         patience=10,
-        verbose=True,
         mode='max'
     )
 
@@ -63,9 +57,10 @@ if __name__ == "__main__":
         model=model,
     )
     trainer = Trainer(
+        seed=args.seed,
         logger=logger,
-        gpus=1,
-        max_nb_epochs=args.epochs,
+        gpu_id=0,
+        num_max_epochs=args.epochs,
         early_stop_callback=early_stop_callback,
         checkpoint_callback=checkpoint_callback,
     )
@@ -77,4 +72,4 @@ if __name__ == "__main__":
         load_checkpoint(args.checkpoint, model, optimizer=None)
 
     trainer.fit(model)
-    logger.save_file(checkpoint_callback.latest_checkpoint_path)
+    logger.save_file(checkpoint_callback.last_checkpoint_path)

@@ -1,7 +1,6 @@
 import os
 
 import matplotlib.pyplot as plt
-import pytorch_lightning as pl
 import torch
 from torch import optim
 from torch.utils.data import DataLoader
@@ -10,9 +9,10 @@ from src.checkpoint import load_checkpoint
 from src.data.lrw import LRWDataset
 from src.models.attention import Attention
 from src.models.lrw_model import LRWModel
+from src.trainer.module import Module
 
 
-class ExpertModel(pl.LightningModule):
+class ExpertModel(Module):
     def __init__(self, hparams, ckpt_left, ckpt_center, ckpt_right):
         super().__init__()
         self.hparams = hparams
@@ -89,7 +89,7 @@ class ExpertModel(pl.LightningModule):
             'val_loss': avg_loss,
             'val_acc': avg_acc,
             'best_val_acc': self.best_val_acc,
-            }
+        }
         return {
             'val_loss': avg_loss,
             'val_acc': avg_acc,
@@ -153,13 +153,11 @@ class ExpertModel(pl.LightningModule):
     def configure_optimizers(self):
         return optim.Adam(self.attention.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
 
-    @pl.data_loader
     def train_dataloader(self):
         train_data = LRWDataset(path=self.hparams.data, num_words=self.hparams.words, seed=self.hparams.seed)
         train_loader = DataLoader(train_data, shuffle=True, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers, pin_memory=True)
         return train_loader
 
-    @pl.data_loader
     def val_dataloader(self):
         val_data = LRWDataset(path=self.hparams.data, num_words=self.hparams.words, mode='val', seed=self.hparams.seed)
         val_loader = DataLoader(val_data, shuffle=False, batch_size=self.hparams.batch_size * 2, num_workers=self.hparams.workers)

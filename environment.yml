@@ -18,7 +18,6 @@ dependencies:
   - pip:
       - opencv-python==4.1.1.26
       - wandb
-      - pytorch-lightning==0.5.2
       - tensorboard==2.0.0
       # - pillow-simd
       # - imutils==0.5.2
