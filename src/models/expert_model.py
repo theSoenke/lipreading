@@ -49,7 +49,7 @@ class ExpertModel(Module):
 
         return output, attn
 
-    def training_step(self, batch, batch_nb):
+    def training_step(self, batch):
         frames = batch['frames']
         labels = batch['label']
         yaws = batch['yaw']
@@ -60,7 +60,7 @@ class ExpertModel(Module):
         logs = {'train_loss': loss, 'train_acc': acc}
         return {'loss': loss, 'acc': acc, 'log': logs}
 
-    def validation_step(self, batch, batch_nb):
+    def validation_step(self, batch):
         frames = batch['frames']
         labels = batch['label']
         yaws = batch['yaw']
@@ -96,7 +96,7 @@ class ExpertModel(Module):
             'log': logs,
         }
 
-    def test_step(self, batch, batch_nb):
+    def test_step(self, batch):
         frames = batch['frames']
         labels = batch['label']
         yaws = batch['yaw']
