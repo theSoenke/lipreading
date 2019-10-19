@@ -24,7 +24,8 @@ class Trainer():
         self.optimizer = self.model.configure_optimizers()
         self.model.to(self.device)
         self.model.train()
-        dataloader = model.train_dataloader()
+        dataloader, train_samples = model.train_dataloader()
+        print(f"Training samples: {train_samples}")
 
         for epoch in range(self.num_max_epochs):
             self.current_epoch += 1
@@ -55,7 +56,9 @@ class Trainer():
     @torch.no_grad()
     def validate(self, model):
         model.eval()
-        dataloader = model.val_dataloader()
+        dataloader, val_samples = model.val_dataloader()
+        print(f"Validation samples: {val_samples}")
+
         outputs = []
         with tqdm(total=len(dataloader)) as pbar:
             for batch in dataloader:
