@@ -71,6 +71,9 @@ if __name__ == "__main__":
 
     if args.checkpoint != None:
         load_checkpoint(args.checkpoint, model, optimizer=None)
+        logs = trainer.validate(model)
+        logger.log_metrics({'val_acc': logs['val_acc'], 'val_los': logs['val_loss']})
+        print(f"Initial val_acc: {logs['val_acc']:.4f}")
 
     trainer.fit(model)
     logger.save_file(checkpoint_callback.last_checkpoint_path)

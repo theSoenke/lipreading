@@ -69,7 +69,7 @@ class Trainer():
                 pbar.update(1)
 
         model.train()
-        results = self.model.validation_end(outputs)
+        results = model.validation_end(outputs)
         return results
 
     @torch.no_grad()
@@ -90,7 +90,7 @@ class Trainer():
                 pbar.update(1)
 
         model.train()
-        results = self.model.test_end(outputs)
+        results = model.test_end(outputs)
         return results
 
 

@@ -46,7 +46,7 @@ class ModelCheckpoint():
                     self.save_model(filepath, save_func, overwrite=True)
 
                 else:
-                    print('\nEpoch %05d: %s did not improve' % (epoch + 1, self.monitor))
+                    print(f"\nEpoch {epoch + 1:05d}: {self.monitor} did not improve")
         else:
             print(f"\nEpoch {epoch+1:05d}: saving model to {filepath}")
             self.save_model(filepath, save_func, overwrite=False)
