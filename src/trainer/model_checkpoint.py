@@ -41,13 +41,12 @@ class ModelCheckpoint():
                 print(f"Can save best model only with {self.monitor} available", RuntimeWarning)
             else:
                 if self.monitor_op(current, self.best):
-                    print(f"\nEpoch {epoch+1:05d}: {self.monitor} improved from {self.best:.5f} to {current:.5f},' ' saving model to {filepath}")
+                    print(f"\nEpoch {epoch+1:05d}: {self.monitor} improved from {self.best:.5f} to {current:.5f}, saving model to {filepath}")
                     self.best = current
                     self.save_model(filepath, save_func, overwrite=True)
 
                 else:
                     print('\nEpoch %05d: %s did not improve' % (epoch + 1, self.monitor))
         else:
-            if self.verbose > 0:
-                print('\nEpoch %05d: saving model to %s' % (epoch + 1, filepath))
+            print(f"\nEpoch {epoch+1:05d}: saving model to {filepath}")
             self.save_model(filepath, save_func, overwrite=False)

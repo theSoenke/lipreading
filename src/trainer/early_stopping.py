@@ -30,8 +30,7 @@ class EarlyStopping():
         current = logs.get(self.monitor)
         stop_training = False
         if current is None:
-            print('Early stopping conditioned on metric `%s` ' 'which is not available. Available metrics are: %s' %
-                  (self.monitor, ','.join(list(logs.keys()))), RuntimeWarning)
+            print(f"Early stopping metric `{self.monitor}` is not available. Available metrics: {','.join(list(logs.keys()))}", RuntimeWarning)
             stop_training = True
             return stop_training
 
@@ -49,4 +48,4 @@ class EarlyStopping():
 
     def on_train_end(self, logs=None):
         if self.stopped_epoch > 0:
-            print('Epoch %05d: early stopping' % (self.stopped_epoch + 1))
+            print(f"Epoch {self.stopped_epoch + 1:05d}: early stopping")

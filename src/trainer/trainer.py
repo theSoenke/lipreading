@@ -24,8 +24,8 @@ class Trainer():
         self.optimizer = self.model.configure_optimizers()
         self.model.to(self.device)
         self.model.train()
-        dataloader, train_samples = model.train_dataloader()
-        print(f"Training samples: {train_samples}")
+        dataloader = model.train_dataloader()
+        print(f"Training samples: {len(dataloader.dataset)}")
 
         for epoch in range(self.num_max_epochs):
             self.current_epoch += 1
@@ -57,8 +57,8 @@ class Trainer():
     def validate(self, model):
         model.to(self.device)
         model.eval()
-        dataloader, val_samples = model.val_dataloader()
-        print(f"Validation samples: {val_samples}")
+        dataloader = model.val_dataloader()
+        print(f"Validation samples: {len(dataloader.dataset)}")
 
         outputs = []
         with tqdm(total=len(dataloader)) as pbar:
@@ -71,12 +71,30 @@ class Trainer():
                 pbar.update(1)
 
         model.train()
-        eval_results = self.model.validation_end(outputs)
-        return eval_results
+        results = self.model.validation_end(outputs)
+        return results
 
+    @torch.no_grad()
     def test(self, model):
         model.to(self.device)
-        # TODO
+        model.eval()
+        dataloader = model.test_dataloader()
+        print(f"Test samples: {len(dataloader.dataset)}")
+
+        outputs = []
+        with tqdm(total=len(dataloader)) as pbar:
+            for batch in dataloader:
+                pbar.set_description("Test")
+                if self.use_gpu:
+                    batch = self.transfer_batch_to_gpu(batch, self.gpu_id)
+                output = model.test_step(batch)
+                outputs.append(output)
+                pbar.update(1)
+
+        model.train()
+        results = self.model.test_end(outputs)
+        return results
+
 
     def __process_logs(self, logs):
         metrics = {}

@@ -95,7 +95,7 @@ class LRWModel(Module):
             seed=self.hparams.seed
         )
         train_loader = DataLoader(train_data, shuffle=True, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers, pin_memory=True)
-        return train_loader, len(train_data)
+        return train_loader
 
     def val_dataloader(self):
         val_data = LRWDataset(
@@ -107,19 +107,19 @@ class LRWModel(Module):
             seed=self.hparams.seed
         )
         val_loader = DataLoader(val_data, shuffle=False, batch_size=self.hparams.batch_size * 2, num_workers=self.hparams.workers)
-        return val_loader, len(val_data)
+        return val_loader
 
-    # def test_dataloader(self):
-    #     test_data = LRWDataset(
-    #         path=self.hparams.data,
-    #         num_words=self.hparams.words,
-    #         in_channels=self.in_channels,
-    #         mode='test',
-    #         query=self.query,
-    #         seed=self.hparams.seed
-    #     )
-    #     test_loader = DataLoader(test_data, shuffle=False, batch_size=self.hparams.batch_size * 2, num_workers=self.hparams.workers)
-    #     return test_loader, len(test_data)
+    def test_dataloader(self):
+        test_data = LRWDataset(
+            path=self.hparams.data,
+            num_words=self.hparams.words,
+            in_channels=self.in_channels,
+            mode='test',
+            query=self.query,
+            seed=self.hparams.seed
+        )
+        test_loader = DataLoader(test_data, shuffle=False, batch_size=self.hparams.batch_size * 2, num_workers=self.hparams.workers)
+        return test_loader
 
     def accuracy(output, labels):
         sums = torch.sum(output, dim=1)
