@@ -2,6 +2,7 @@ import os
 
 import torch
 import torchvision.transforms as transforms
+from pytorch_trainer.module import Module
 from torch import nn, optim
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
@@ -9,7 +10,6 @@ from torch.utils.data import DataLoader
 from src.data.lrw import LRWDataset
 from src.models.nll_sequence_loss import NLLSequenceLoss
 from src.models.resnet import ResNetModel
-from src.trainer.module import Module
 
 
 class LRWModel(Module):

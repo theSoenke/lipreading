@@ -2,12 +2,12 @@ import argparse
 
 import psutil
 import torch
+from pytorch_trainer.early_stopping import EarlyStopping
+from pytorch_trainer.model_checkpoint import ModelCheckpoint
+from pytorch_trainer.trainer import Trainer
+from pytorch_trainer.wandb_logger import WandbLogger
 
 from src.models.expert_model import ExpertModel
-from src.trainer.early_stopping import EarlyStopping
-from src.trainer.model_checkpoint import ModelCheckpoint
-from src.trainer.trainer import Trainer
-from src.trainer.wandb_logger import WandbLogger
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

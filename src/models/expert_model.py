@@ -2,6 +2,7 @@ import os
 
 import matplotlib.pyplot as plt
 import torch
+from pytorch_trainer.module import Module
 from torch import optim
 from torch.utils.data import DataLoader
 
@@ -9,7 +10,6 @@ from src.checkpoint import load_checkpoint
 from src.data.lrw import LRWDataset
 from src.models.attention import Attention
 from src.models.lrw_model import LRWModel
-from src.trainer.module import Module
 
 
 class ExpertModel(Module):

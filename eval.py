@@ -1,9 +1,10 @@
 import argparse
 
+from pytorch_trainer.trainer import Trainer
+
 from src.checkpoint import load_checkpoint
 from src.models.lrw_model import LRWModel
 from src.models.model import Model
-from src.trainer.trainer import Trainer
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

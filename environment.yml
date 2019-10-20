@@ -19,6 +19,7 @@ dependencies:
       - opencv-python==4.1.1.26
       - wandb
       - tensorboard==2.0.0
+      - git+https://github.com/theSoenke/pytorch-trainer
       # - pillow-simd
       # - imutils==0.5.2
       # - dlib==19.17.0
