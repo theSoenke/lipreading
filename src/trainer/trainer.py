@@ -17,7 +17,6 @@ class Trainer():
 
         self.use_gpu = torch.cuda.is_available()
         self.device = torch.device(f"cuda:{gpu_id}" if self.use_gpu else "cpu")
-        self.current_epoch = 0
 
     def fit(self, model):
         self.model = model
@@ -28,7 +27,6 @@ class Trainer():
         print(f"Training samples: {len(dataloader.dataset)}")
 
         for epoch in range(self.num_max_epochs):
-            self.current_epoch += 1
             with tqdm(total=len(dataloader)) as pbar:
                 pbar.set_description(f"Epoch {epoch}")
                 for batch in dataloader:
