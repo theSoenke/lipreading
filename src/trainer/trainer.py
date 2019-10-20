@@ -55,6 +55,7 @@ class Trainer():
 
     @torch.no_grad()
     def validate(self, model):
+        model.to(self.device)
         model.eval()
         dataloader, val_samples = model.val_dataloader()
         print(f"Validation samples: {val_samples}")
@@ -74,7 +75,8 @@ class Trainer():
         return eval_results
 
     def test(self, model):
-        pass
+        model.to(self.device)
+        # TODO
 
     def __process_logs(self, logs):
         metrics = {}
