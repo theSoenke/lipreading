@@ -2,7 +2,7 @@ import os
 
 import matplotlib.pyplot as plt
 import torch
-from pytorch_trainer.module import Module
+from pytorch_trainer import Module
 from torch import optim
 from torch.utils.data import DataLoader
 

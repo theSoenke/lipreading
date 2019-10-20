@@ -1,6 +1,6 @@
 import argparse
 
-from pytorch_trainer.trainer import Trainer
+from pytorch_trainer import Trainer
 
 from src.checkpoint import load_checkpoint
 from src.models.lrw_model import LRWModel
