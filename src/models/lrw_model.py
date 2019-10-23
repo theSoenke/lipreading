@@ -53,7 +53,7 @@ class LRWModel(Module):
         labels = batch['label']
         output = self.forward(frames)
         loss = self.loss(output, labels.squeeze(1))
-        acc = LRWModel.accuracy(output, labels)
+        acc = accuracy(output, labels)
         logs = {'train_loss': loss, 'train_acc': acc}
         return {'loss': loss, 'acc': acc, 'log': logs}
 
@@ -62,7 +62,7 @@ class LRWModel(Module):
         labels = batch['label']
         output = self.forward(frames)
         loss = self.loss(output, labels.squeeze(1))
-        acc = LRWModel.accuracy(output, labels)
+        acc = accuracy(output, labels)
         return {'val_loss': loss, 'val_acc': acc}
 
     def validation_end(self, outputs):
@@ -121,9 +121,9 @@ class LRWModel(Module):
         test_loader = DataLoader(test_data, shuffle=False, batch_size=self.hparams.batch_size * 2, num_workers=self.hparams.workers)
         return test_loader
 
-    @staticmethod
-    def accuracy(output, labels):
-        sums = torch.sum(output, dim=1)
-        _, predicted = sums.max(dim=1)
-        correct = (predicted == labels.squeeze(dim=1)).sum().type(torch.FloatTensor)
-        return correct / output.shape[0]
+
+def accuracy(output, labels):
+    sums = torch.sum(output, dim=1)
+    _, predicted = sums.max(dim=1)
+    correct = (predicted == labels.squeeze(dim=1)).sum().type(torch.FloatTensor)
+    return correct / output.shape[0]

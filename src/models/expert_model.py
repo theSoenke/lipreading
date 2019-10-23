@@ -3,13 +3,15 @@ import os
 import matplotlib.pyplot as plt
 import torch
 from pytorch_trainer import Module
-from torch import optim
+from torch import nn, optim
 from torch.utils.data import DataLoader
 
 from src.checkpoint import load_checkpoint
 from src.data.lrw import LRWDataset
 from src.models.attention import Attention
-from src.models.lrw_model import LRWModel
+from src.models.lrw_model import accuracy
+from src.models.nll_sequence_loss import NLLSequenceLoss
+from src.models.resnet import ResNetModel
 
 
 class ExpertModel(Module):
@@ -17,20 +19,18 @@ class ExpertModel(Module):
         super().__init__()
         self.hparams = hparams
 
-        self.left_expert = LRWModel(hparams, query=(-90, -20))
+        self.left_expert = Expert(hparams.words, in_channels=1, resnet_layers=hparams.resnet)
         load_checkpoint(ckpt_left, self.left_expert)
-        self.left_expert.freeze()
 
-        self.center_expert = LRWModel(hparams, query=(-20, 20))
+        self.center_expert = Expert(hparams.words, in_channels=1, resnet_layers=hparams.resnet)
         load_checkpoint(ckpt_center, self.center_expert)
-        self.center_expert.freeze()
 
-        self.right_expert = LRWModel(hparams, query=(20, 90))
+        self.right_expert = Expert(hparams.words, in_channels=1, resnet_layers=hparams.resnet)
         load_checkpoint(ckpt_right, self.right_expert)
-        self.right_expert.freeze()
 
-        self.loss = self.center_expert.loss
+        self.loss = NLLSequenceLoss()
         self.attention = Attention(attention_dim=40, num_experts=3)
+        self.softmax = nn.LogSoftmax(dim=2)
 
         self.epoch = 0
         self.best_val_acc = 0
@@ -46,6 +46,7 @@ class ExpertModel(Module):
         center_flat = center.view(x.size(0), -1) * attn[1]
         right_flat = right.view(x.size(0), -1) * attn[2]
         output = (left_flat + center_flat + right_flat).view(x.size(0), 29, 10)
+        output = self.softmax(output)
 
         return output, attn
 
@@ -56,7 +57,7 @@ class ExpertModel(Module):
 
         output, attn = self.forward(frames, yaws)
         loss = self.loss(output, labels.squeeze(1))
-        acc = LRWModel.accuracy(output, labels)
+        acc = accuracy(output, labels)
         logs = {'train_loss': loss, 'train_acc': acc}
         return {'loss': loss, 'acc': acc, 'log': logs}
 
@@ -67,7 +68,7 @@ class ExpertModel(Module):
 
         output, attn = self.forward(frames, yaws)
         loss = self.loss(output, labels.squeeze(1))
-        acc = LRWModel.accuracy(output, labels)
+        acc = accuracy(output, labels)
 
         return {
             'val_loss': loss,
@@ -103,7 +104,7 @@ class ExpertModel(Module):
 
         output, _ = self.forward(frames, yaws)
         loss = self.loss(output, labels.squeeze(1))
-        acc = LRWModel.accuracy(output, labels)
+        acc = accuracy(output, labels)
         return {
             'test_loss': loss,
             'test_acc': acc,
@@ -167,3 +168,36 @@ class ExpertModel(Module):
         test_data = LRWDataset(path=self.hparams.data, num_words=self.hparams.words, mode='test', seed=self.hparams.seed)
         test_loader = DataLoader(test_data, shuffle=False, batch_size=self.hparams.batch_size * 2, num_workers=self.hparams.workers)
         return test_loader
+
+
+class Expert(nn.Module):
+    def __init__(self, num_classes, in_channels=1, resnet_layers=13):
+        super().__init__()
+
+        self.frontend = nn.Sequential(
+            nn.Conv3d(in_channels, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
+            nn.BatchNorm3d(64),
+            nn.ReLU(True),
+            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
+        )
+        self.resnet = ResNetModel(layers=resnet_layers, pretrained=False)
+        self.lstm = nn.LSTM(
+            input_size=256,
+            hidden_size=256,
+            num_layers=2,
+            batch_first=True,
+            bidirectional=True
+        )
+        self.fc = nn.Linear(256 * 2, num_classes)
+        self.freeze()
+
+    def forward(self, x):
+        x = self.frontend(x)
+        x = self.resnet(x)
+        x, _ = self.lstm(x)
+        x = self.fc(x)
+        return x
+
+    def freeze(self):
+        for param in self.parameters():
+            param.requires_grad = False
