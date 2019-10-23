@@ -5,22 +5,23 @@ import torch
 from pytorch_trainer import (EarlyStopping, ModelCheckpoint, Trainer,
                              WandbLogger)
 
-from src.models.expert_model import ExpertModel
+from src.checkpoint import load_checkpoint
+from src.models.joined_expert_model import JoinedExpertModel
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', required=True)
+    parser.add_argument("--checkpoint", type=str, required=True)
     parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints/lrw')
-    parser.add_argument("--checkpoint_left", type=str, required=True)
-    parser.add_argument("--checkpoint_center", type=str, required=True)
-    parser.add_argument("--checkpoint_right", type=str, required=True)
-    parser.add_argument("--batch_size", type=int, default=12)
+    parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
     parser.add_argument("--words", type=int, default=10)
+    parser.add_argument("--query", type=str, default=None)
     parser.add_argument("--workers", type=int, default=None)
     parser.add_argument("--resnet", type=int, default=18)
+    parser.add_argument("--pretrained", default=True, type=lambda x: (str(x).lower() == 'true'))
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
@@ -29,7 +30,7 @@ if __name__ == "__main__":
         save_best_only=True,
         monitor='val_acc',
         mode='max',
-        prefix=f"lrw_{args.words}"
+        prefix=f"lrw_experts_{args.words}"
     )
 
     early_stop_callback = EarlyStopping(
@@ -39,14 +40,17 @@ if __name__ == "__main__":
         mode='max'
     )
 
+    query = None if args.query == None else [float(x) for x in args.query.strip().split(",")]
+    assert query == None or len(query) == 2, "--query param not in format -20,20"
     args.workers = psutil.cpu_count(logical=False) if args.workers == None else args.workers
-    args.pretrained = False
-    model = ExpertModel(args, args.checkpoint_left, args.checkpoint_center, args.checkpoint_right)
+    args.pretrained = False if args.checkpoint != None else args.pretrained
+    model = JoinedExpertModel(
+        hparams=args,
+    )
     logger = WandbLogger(
         project='lipreading',
         model=model,
     )
-    model.logger = logger
     trainer = Trainer(
         seed=args.seed,
         logger=logger,
@@ -61,5 +65,8 @@ if __name__ == "__main__":
     logger.log_hyperparams(args)
 
     logs = trainer.validate(model)
-    print(f"Initial expert val_acc: {logs['val_acc']:.4f}")
+    logger.log_metrics({'val_acc': logs['val_acc'], 'val_los': logs['val_loss']})
+    print(f"Initial val_acc: {logs['val_acc']:.4f}")
+
     trainer.fit(model)
+    logger.save_file(checkpoint_callback.last_checkpoint_path)
