@@ -1,5 +1,6 @@
 import os
 
+import matplotlib.pyplot as plt
 import torch
 from pytorch_trainer import Module
 from torch import nn, optim
@@ -7,6 +8,7 @@ from torch.utils.data import DataLoader
 
 from src.checkpoint import load_checkpoint
 from src.data.lrw import LRWDataset
+from src.models.attention import Attention
 from src.models.lrw_model import accuracy
 from src.models.nll_sequence_loss import NLLSequenceLoss
 from src.models.resnet import ResNetModel
@@ -18,57 +20,70 @@ class JoinedExpertModel(Module):
         self.hparams = hparams
 
         self.left_expert = Expert(resnet_layers=hparams.resnet)
-        load_checkpoint(hparams.checkpoint, self.left_expert, strict=False)
-
         self.center_expert = Expert(resnet_layers=hparams.resnet)
-        load_checkpoint(hparams.checkpoint, self.center_expert, strict=False)
-
         self.right_expert = Expert(resnet_layers=hparams.resnet)
-        load_checkpoint(hparams.checkpoint, self.right_expert, strict=False)
-
         self.joined_backend = JoinedBackend(num_classes=hparams.words)
-        load_checkpoint(hparams.checkpoint, self.joined_backend, strict=False)
-        self.loss = self.joined_backend.loss
 
+        if hparams.checkpoint != None:
+            load_checkpoint(hparams.checkpoint, self.left_expert, strict=False)
+            load_checkpoint(hparams.checkpoint, self.center_expert, strict=False)
+            load_checkpoint(hparams.checkpoint, self.right_expert, strict=False)
+            load_checkpoint(hparams.checkpoint, self.joined_backend, strict=False)
+
+        self.loss = self.joined_backend.loss
+        self.attention = Attention(attention_dim=40, num_experts=3)
+
+        self.logger = None
         self.epoch = 0
         self.best_val_acc = 0
 
     def forward(self, x, yaws):
-        left_samples = torch.FloatTensor([]).cuda()
-        center_samples = torch.FloatTensor([]).cuda()
-        right_samples = torch.FloatTensor([]).cuda()
-        for i, yaw in enumerate(yaws):
-            if yaw < -20:
-                left_samples = torch.cat([left_samples, x[i]])
-            elif yaw >= -20 and yaw < 20:
-                center_samples = torch.cat([center_samples, x[i]])
-            else:
-                right_samples = torch.cat([right_samples, x[i]])
+        # left_samples = torch.FloatTensor([]).cuda()
+        # center_samples = torch.FloatTensor([]).cuda()
+        # right_samples = torch.FloatTensor([]).cuda()
+        # for i, yaw in enumerate(yaws):
+        #     if yaw < -20:
+        #         left_samples = torch.cat([left_samples, x[i]])
+        #     elif yaw >= -20 and yaw < 20:
+        #         center_samples = torch.cat([center_samples, x[i]])
+        #     else:
+        #         right_samples = torch.cat([right_samples, x[i]])
 
-        expert_output = []
-        if len(left_samples) > 0:
-            left_samples = left_samples.unsqueeze(dim=1)
-            left = self.left_expert(left_samples)
-            expert_output.append(left)
-        if len(center_samples) > 0:
-            center_samples = center_samples.unsqueeze(dim=1)
-            center = self.center_expert(center_samples)
-            expert_output.append(center)
-        if len(right_samples) > 0:
-            right_samples = right_samples.unsqueeze(dim=1)
-            right = self.right_expert(right_samples)
-            expert_output.append(right)
+        # expert_output = []
+        # if len(left_samples) > 0:
+        #     left_samples = left_samples.unsqueeze(dim=1)
+        #     left = self.left_expert(left_samples)
+        #     expert_output.append(left)
+        # if len(center_samples) > 0:
+        #     center_samples = center_samples.unsqueeze(dim=1)
+        #     center = self.center_expert(center_samples)
+        #     expert_output.append(center)
+        # if len(right_samples) > 0:
+        #     right_samples = right_samples.unsqueeze(dim=1)
+        #     right = self.right_expert(right_samples)
+        #     expert_output.append(right)
+        # output = torch.cat(expert_output)
 
-        output = torch.cat(expert_output)
+        left = self.left_expert(x)
+        center = self.center_expert(x)
+        right = self.right_expert(x)
+        context = self.attention(yaws)
+        attn = context.split(split_size=1, dim=1)
+
+        left_flat = left.view(x.size(0), -1) * attn[0]
+        center_flat = center.view(x.size(0), -1) * attn[1]
+        right_flat = right.view(x.size(0), -1) * attn[2]
+        output = (left_flat + center_flat + right_flat).view(x.size(0), 29, 256)
+
         output = self.joined_backend(output)
-        return output
+        return output, attn
 
     def training_step(self, batch):
         frames = batch['frames']
         labels = batch['label']
         yaws = batch['yaw']
 
-        output = self.forward(frames, yaws)
+        output, _ = self.forward(frames, yaws)
         loss = self.loss(output, labels.squeeze(1))
         acc = accuracy(output, labels)
         logs = {'train_loss': loss, 'train_acc': acc}
@@ -79,7 +94,7 @@ class JoinedExpertModel(Module):
         labels = batch['label']
         yaws = batch['yaw']
 
-        output = self.forward(frames, yaws)
+        output, attn = self.forward(frames, yaws)
         loss = self.loss(output, labels.squeeze(1))
         acc = accuracy(output, labels)
 
@@ -87,9 +102,14 @@ class JoinedExpertModel(Module):
             'val_loss': loss,
             'val_acc': acc,
             'yaws': yaws,
+            'left_attn': attn[0],
+            'center_attn': attn[1],
+            'right_attn': attn[2],
         }
 
     def validation_end(self, outputs):
+        self.visualize_attention(outputs)
+
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         avg_acc = torch.stack([x['val_acc'] for x in outputs]).mean()
         if self.best_val_acc < avg_acc:
@@ -104,6 +124,26 @@ class JoinedExpertModel(Module):
             'val_acc': avg_acc,
             'log': logs,
         }
+
+    def visualize_attention(self, outputs):
+        yaws = torch.cat([x['yaws'] for x in outputs]).squeeze(dim=1).cpu().numpy()
+        left_attn = torch.cat([x['left_attn'] for x in outputs]).squeeze(dim=1).cpu().numpy()
+        center_attn = torch.cat([x['center_attn'] for x in outputs]).squeeze(dim=1).cpu().numpy()
+        right_attn = torch.cat([x['right_attn'] for x in outputs]).squeeze(dim=1).cpu().numpy()
+
+        size = 40
+        plt.scatter(yaws, left_attn, s=size, label='left expert')
+        plt.scatter(yaws, center_attn, s=size, label='center expert')
+        plt.scatter(yaws, right_attn, s=size, label='right expert')
+        plt.legend(loc='upper center', ncol=3, bbox_to_anchor=(0.5, 1.1))
+        plt.xlabel('Degree')
+        plt.ylabel('Attention')
+
+        path = f"attention_seed_{self.hparams.seed}_epoch_{self.epoch}.png"
+        plt.savefig(path)
+        self.logger.save_file(path)
+        plt.clf()
+        self.epoch += 1
 
     def test_step(self, batch):
         frames = batch['frames']

@@ -11,7 +11,7 @@ from src.models.joined_expert_model import JoinedExpertModel
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', required=True)
-    parser.add_argument("--checkpoint", type=str, required=True)
+    parser.add_argument("--checkpoint", type=str)
     parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints/lrw')
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--epochs", type=int, default=20)
@@ -51,6 +51,7 @@ if __name__ == "__main__":
         project='lipreading',
         model=model,
     )
+    model.logger = logger
     trainer = Trainer(
         seed=args.seed,
         logger=logger,
