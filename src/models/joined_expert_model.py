@@ -31,59 +31,26 @@ class JoinedExpertModel(Module):
             load_checkpoint(hparams.checkpoint, self.joined_backend, strict=False)
 
         self.loss = self.joined_backend.loss
-        self.attention = Attention(attention_dim=40, num_experts=3)
 
         self.logger = None
         self.epoch = 0
         self.best_val_acc = 0
 
     def forward(self, x, yaws):
-        # left_samples = torch.FloatTensor([]).cuda()
-        # center_samples = torch.FloatTensor([]).cuda()
-        # right_samples = torch.FloatTensor([]).cuda()
-        # for i, yaw in enumerate(yaws):
-        #     if yaw < -20:
-        #         left_samples = torch.cat([left_samples, x[i]])
-        #     elif yaw >= -20 and yaw < 20:
-        #         center_samples = torch.cat([center_samples, x[i]])
-        #     else:
-        #         right_samples = torch.cat([right_samples, x[i]])
-
-        # expert_output = []
-        # if len(left_samples) > 0:
-        #     left_samples = left_samples.unsqueeze(dim=1)
-        #     left = self.left_expert(left_samples)
-        #     expert_output.append(left)
-        # if len(center_samples) > 0:
-        #     center_samples = center_samples.unsqueeze(dim=1)
-        #     center = self.center_expert(center_samples)
-        #     expert_output.append(center)
-        # if len(right_samples) > 0:
-        #     right_samples = right_samples.unsqueeze(dim=1)
-        #     right = self.right_expert(right_samples)
-        #     expert_output.append(right)
-        # output = torch.cat(expert_output)
-
         left = self.left_expert(x)
         center = self.center_expert(x)
         right = self.right_expert(x)
-        context = self.attention(yaws)
-        attn = context.split(split_size=1, dim=1)
+        output = torch.cat([left, center, right], dim=2)
 
-        left_flat = left.view(x.size(0), -1) * attn[0]
-        center_flat = center.view(x.size(0), -1) * attn[1]
-        right_flat = right.view(x.size(0), -1) * attn[2]
-        output = (left_flat + center_flat + right_flat).view(x.size(0), 29, 256)
-
-        output = self.joined_backend(center)
-        return output, attn
+        output = self.joined_backend(output)
+        return output
 
     def training_step(self, batch):
         frames = batch['frames']
         labels = batch['label']
         yaws = batch['yaw']
 
-        output, _ = self.forward(frames, yaws)
+        output = self.forward(frames, yaws)
         loss = self.loss(output, labels.squeeze(1))
         acc = accuracy(output, labels)
         logs = {'train_loss': loss, 'train_acc': acc}
@@ -94,7 +61,7 @@ class JoinedExpertModel(Module):
         labels = batch['label']
         yaws = batch['yaw']
 
-        output, attn = self.forward(frames, yaws)
+        output = self.forward(frames, yaws)
         loss = self.loss(output, labels.squeeze(1))
         acc = accuracy(output, labels)
 
@@ -102,14 +69,9 @@ class JoinedExpertModel(Module):
             'val_loss': loss,
             'val_acc': acc,
             'yaws': yaws,
-            'left_attn': attn[0],
-            'center_attn': attn[1],
-            'right_attn': attn[2],
         }
 
     def validation_end(self, outputs):
-        self.visualize_attention(outputs)
-
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         avg_acc = torch.stack([x['val_acc'] for x in outputs]).mean()
         if self.best_val_acc < avg_acc:
@@ -215,7 +177,7 @@ class JoinedBackend(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
         self.lstm = nn.LSTM(
-            input_size=256,
+            input_size=256 * 3,
             hidden_size=256,
             num_layers=2,
             batch_first=True,
