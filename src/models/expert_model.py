@@ -127,19 +127,6 @@ class ExpertModel(Module):
         center_attn = torch.cat([x['center_attn'] for x in outputs]).squeeze(dim=1).cpu().numpy()
         right_attn = torch.cat([x['right_attn'] for x in outputs]).squeeze(dim=1).cpu().numpy()
 
-        # left_buckets, right_buckets = {}, {}
-        # for i in range(len(yaws)):
-        #     degree = int(yaws[i])
-        #     if degree in left_buckets:
-        #         left_buckets[degree].append(left_attn[i])
-        #     else:
-        #         left_buckets[degree] = [left_attn[i]]
-
-        #     if degree in right_buckets:
-        #         right_buckets[degree].append(right_attn[i])
-        #     else:
-        #         right_buckets[degree] = [right_attn[i]]
-
         size = 40
         plt.scatter(yaws, left_attn, s=size, label='left expert')
         plt.scatter(yaws, center_attn, s=size, label='center expert')

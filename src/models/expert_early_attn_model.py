@@ -14,26 +14,29 @@ from src.models.nll_sequence_loss import NLLSequenceLoss
 from src.models.resnet import ResNetModel
 
 
-class JoinedExpertModel(Module):
-    def __init__(self, hparams):
+class ExpertEarlyAttnModel(Module):
+    def __init__(self, hparams, ckpt_left, ckpt_center, ckpt_right):
         super().__init__()
         self.hparams = hparams
-
-        self.left_expert = Expert(resnet_layers=hparams.resnet)
-        self.center_expert = Expert(resnet_layers=hparams.resnet)
-        self.right_expert = Expert(resnet_layers=hparams.resnet)
-        self.joined_backend = JoinedBackend(num_classes=hparams.words)
-
-        if hparams.checkpoint != None:
-            load_checkpoint(hparams.checkpoint, self.left_expert, strict=False)
-            load_checkpoint(hparams.checkpoint, self.center_expert, strict=False)
-            load_checkpoint(hparams.checkpoint, self.right_expert, strict=False)
-            load_checkpoint(hparams.checkpoint, self.joined_backend, strict=False)
-
-        self.loss = self.joined_backend.loss
-        self.attention = Attention(attention_dim=40, num_experts=3)
-
         self.logger = None
+
+        self.left_expert = Expert(hparams.words, in_channels=1, resnet_layers=hparams.resnet)
+        load_checkpoint(ckpt_left, self.left_expert, strict=False)
+
+        self.center_expert = Expert(hparams.words, in_channels=1, resnet_layers=hparams.resnet)
+        load_checkpoint(ckpt_center, self.center_expert, strict=False)
+
+        self.right_expert = Expert(hparams.words, in_channels=1, resnet_layers=hparams.resnet)
+        load_checkpoint(ckpt_right, self.right_expert, strict=False)
+
+        self.joined_backend = JoinedBackend(num_classes=hparams.words)
+        load_checkpoint(ckpt_center, self.joined_backend, strict=False)
+        # self.joined_backend.freeze()
+
+        self.loss = NLLSequenceLoss()
+        self.attention = Attention(attention_dim=40, num_experts=3)
+        self.softmax = nn.LogSoftmax(dim=2)
+
         self.epoch = 0
         self.best_val_acc = 0
 
@@ -48,8 +51,8 @@ class JoinedExpertModel(Module):
         center_flat = center.view(x.size(0), -1) * attn[1]
         right_flat = right.view(x.size(0), -1) * attn[2]
         output = (left_flat + center_flat + right_flat).view(x.size(0), 29, 256)
-
         output = self.joined_backend(output)
+
         return output, attn
 
     def training_step(self, batch):
@@ -57,7 +60,7 @@ class JoinedExpertModel(Module):
         labels = batch['label']
         yaws = batch['yaw']
 
-        output, _ = self.forward(frames, yaws)
+        output, attn = self.forward(frames, yaws)
         loss = self.loss(output, labels.squeeze(1))
         acc = accuracy(output, labels)
         logs = {'train_loss': loss, 'train_acc': acc}
@@ -99,26 +102,6 @@ class JoinedExpertModel(Module):
             'log': logs,
         }
 
-    def visualize_attention(self, outputs):
-        yaws = torch.cat([x['yaws'] for x in outputs]).squeeze(dim=1).cpu().numpy()
-        left_attn = torch.cat([x['left_attn'] for x in outputs]).squeeze(dim=1).cpu().numpy()
-        center_attn = torch.cat([x['center_attn'] for x in outputs]).squeeze(dim=1).cpu().numpy()
-        right_attn = torch.cat([x['right_attn'] for x in outputs]).squeeze(dim=1).cpu().numpy()
-
-        size = 40
-        plt.scatter(yaws, left_attn, s=size, label='left expert')
-        plt.scatter(yaws, center_attn, s=size, label='center expert')
-        plt.scatter(yaws, right_attn, s=size, label='right expert')
-        plt.legend(loc='upper center', ncol=3, bbox_to_anchor=(0.5, 1.1))
-        plt.xlabel('Degree')
-        plt.ylabel('Attention')
-
-        path = f"attention_seed_{self.hparams.seed}_epoch_{self.epoch}.png"
-        plt.savefig(path)
-        self.logger.save_file(path)
-        plt.clf()
-        self.epoch += 1
-
     def test_step(self, batch):
         frames = batch['frames']
         labels = batch['label']
@@ -141,6 +124,26 @@ class JoinedExpertModel(Module):
             'test_acc': avg_acc,
             'log': logs,
         }
+
+    def visualize_attention(self, outputs):
+        yaws = torch.cat([x['yaws'] for x in outputs]).squeeze(dim=1).cpu().numpy()
+        left_attn = torch.cat([x['left_attn'] for x in outputs]).squeeze(dim=1).cpu().numpy()
+        center_attn = torch.cat([x['center_attn'] for x in outputs]).squeeze(dim=1).cpu().numpy()
+        right_attn = torch.cat([x['right_attn'] for x in outputs]).squeeze(dim=1).cpu().numpy()
+
+        size = 40
+        plt.scatter(yaws, left_attn, s=size, label='left expert')
+        plt.scatter(yaws, center_attn, s=size, label='center expert')
+        plt.scatter(yaws, right_attn, s=size, label='right expert')
+        plt.legend(loc='upper center', ncol=3, bbox_to_anchor=(0.5, 1.1))
+        plt.xlabel('Degree')
+        plt.ylabel('Attention')
+
+        path = f"attention_seed_{self.hparams.seed}_epoch_{self.epoch}.png"
+        plt.savefig(path)
+        self.logger.save_file(path)
+        plt.clf()
+        self.epoch += 1
 
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
@@ -165,32 +168,26 @@ class JoinedExpertModel(Module):
 
 
 class Expert(nn.Module):
-    def __init__(self, resnet_layers=18):
+    def __init__(self, num_classes, in_channels=1, resnet_layers=13):
         super().__init__()
+
         self.frontend = nn.Sequential(
-            nn.Conv3d(1, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
+            nn.Conv3d(in_channels, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
             nn.BatchNorm3d(64),
             nn.ReLU(True),
             nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
         )
         self.resnet = ResNetModel(layers=resnet_layers, pretrained=False)
-        self.lstm = nn.LSTM(
-            input_size=256,
-            hidden_size=256,
-            num_layers=2,
-            batch_first=True,
-            bidirectional=True
-        )
         self.freeze()
-
-    def freeze(self):
-        for param in self.parameters():
-            param.requires_grad = False
 
     def forward(self, x):
         x = self.frontend(x)
         x = self.resnet(x)
         return x
+
+    def freeze(self):
+        for param in self.parameters():
+            param.requires_grad = False
 
 
 class JoinedBackend(nn.Module):
@@ -212,3 +209,7 @@ class JoinedBackend(nn.Module):
         x = self.fc(x)
         x = self.softmax(x)
         return x
+
+    def freeze(self):
+        for param in self.parameters():
+            param.requires_grad = False
