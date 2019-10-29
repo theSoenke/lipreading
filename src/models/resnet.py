@@ -126,7 +126,7 @@ class ResNetModel(nn.Module):
 
     def forward(self, x):
         transposed = x.transpose(1, 2).contiguous()
-        view = transposed.view(-1, 64, 28, 28)
+        view = transposed.view(-1, 64, x.size(3), x.size(4))
         output = self.resnet(view)
         output = output.view(x.shape[0], -1, self.num_classes)
         return output
