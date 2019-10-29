@@ -54,6 +54,7 @@ if __name__ == "__main__":
         project='lipreading',
         model=model,
     )
+    model.logger = logger
     trainer = Trainer(
         seed=args.seed,
         logger=logger,

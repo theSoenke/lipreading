@@ -1,8 +1,12 @@
 import os
 
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torchvision.transforms as transforms
 from pytorch_trainer import Module, data_loader
+from sklearn.metrics import confusion_matrix
+from sklearn.utils.multiclass import unique_labels
 from torch import nn, optim
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
@@ -40,6 +44,8 @@ class LRWModel(Module):
         self.softmax = nn.LogSoftmax(dim=2)
         self.loss = NLLSequenceLoss()
 
+        self.epoch = 0
+
     def forward(self, x):
         x = self.frontend(x)
         x = self.resnet(x)
@@ -60,12 +66,26 @@ class LRWModel(Module):
     def validation_step(self, batch):
         frames = batch['frames']
         labels = batch['label']
+        words = batch['word']
         output = self.forward(frames)
         loss = self.loss(output, labels.squeeze(1))
         acc = accuracy(output, labels)
-        return {'val_loss': loss, 'val_acc': acc}
+        sums = torch.sum(output, dim=1)
+        _, predicted = sums.max(dim=1)
+        return {
+            'val_loss': loss,
+            'val_acc': acc,
+            'predictions': predicted,
+            'labels': labels.squeeze(dim=1),
+            'words': words,
+        }
 
     def validation_end(self, outputs):
+        predictions = torch.cat([x['predictions'] for x in outputs]).cpu().numpy()
+        labels = torch.cat([x['labels'] for x in outputs]).cpu().numpy()
+        words = np.concatenate([x['words'] for x in outputs])
+        self.confusion_matrix(labels, predictions, words)
+
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         avg_acc = torch.stack([x['val_acc'] for x in outputs]).mean()
 
@@ -76,11 +96,59 @@ class LRWModel(Module):
             'val_acc': avg_acc,
             'best_val_acc': self.best_val_acc
         }
+
+        self.epoch += 1
         return {
             'val_loss': avg_loss,
             'val_acc': avg_acc,
             'log': logs,
         }
+
+    def confusion_matrix(self, label, prediction, words, normalize=True):
+        classes = unique_labels(label, prediction)
+        cm = confusion_matrix(prediction, label)
+        cmap = plt.cm.Blues
+        fig, ax = plt.subplots()
+        im = ax.imshow(cm, interpolation='nearest', cmap=cmap)
+
+        ax.set_xticks(np.arange(cm.shape[1]))
+        ax.set_yticks(np.arange(cm.shape[0]))
+        ax.set_xticklabels(classes)
+        ax.set_yticklabels(classes)
+
+        ax.tick_params(top=True, bottom=False, labeltop=True, labelbottom=False)
+
+        plt.setp(ax.get_xticklabels(), rotation=-30, ha="right", rotation_mode="anchor")
+
+        for edge, spine in ax.spines.items():
+            spine.set_visible(False)
+
+        ax.set_xticks(np.arange(cm.shape[1]+1)-.5, minor=True)
+        ax.set_yticks(np.arange(cm.shape[0]+1)-.5, minor=True)
+        ax.set_ylabel("Label")
+        ax.set_xlabel("Predicted")
+        ax.grid(which="minor", color="w", linestyle='-', linewidth=3)
+        ax.tick_params(which="minor", bottom=False, left=False)
+        ax.set_title("Word Confusion Matrix")
+
+        if normalize:
+            cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
+        fmt = '.2f' if normalize else 'd'
+        thresh = cm.max() / 2.
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                ax.text(j, i, format(cm[i, j], fmt),
+                        ha="center", va="center",
+                        color="white" if cm[i, j] > thresh else "black")
+        fig.tight_layout()
+
+        directory = "data/viz/lrw"
+        os.makedirs(directory, exist_ok=True)
+        path = f"{directory}/cm_seed_{self.hparams.seed}_epoch_{self.epoch}.png"
+        plt.savefig(path)
+        self.logger.save_file(path)
+        plt.clf()
 
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
