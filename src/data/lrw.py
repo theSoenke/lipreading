@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from tqdm import tqdm
 
-from src.data.transforms import StatefulRandomHorizontalFlip
+from src.data.transforms import StatefulRandomHorizontalFlip, Crop
 
 
 def build_word_list(directory, num_words, seed):
@@ -67,7 +67,7 @@ class LRWDataset(Dataset):
         return paths, file_list, labels, words
 
     def build_tensor(self, frames):
-        temporalVolume = torch.FloatTensor(29, self.in_channels, 112, 112)
+        temporalVolume = torch.FloatTensor(29, self.in_channels, 96, 96)
         if(self.augmentation):
             augmentations = transforms.Compose([
                 StatefulRandomHorizontalFlip(0.5),
@@ -78,7 +78,8 @@ class LRWDataset(Dataset):
         if self.in_channels == 1:
             transform = transforms.Compose([
                 transforms.ToPILImage(),
-                transforms.CenterCrop((112, 112)),
+                # transforms.CenterCrop((112, 112)),
+                Crop(115, 79, 96, 96),
                 augmentations,
                 transforms.Grayscale(num_output_channels=1),
                 transforms.ToTensor(),
@@ -87,7 +88,8 @@ class LRWDataset(Dataset):
         elif self.in_channels == 3:
             transform = transforms.Compose([
                 transforms.ToPILImage(),
-                transforms.CenterCrop((112, 112)),
+                # transforms.CenterCrop((112, 112)),
+                Crop(115, 79, 96, 96),
                 augmentations,
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])

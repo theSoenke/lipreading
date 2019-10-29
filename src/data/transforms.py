@@ -15,3 +15,21 @@ class StatefulRandomHorizontalFlip():
 
     def __repr__(self):
         return self.__class__.__name__ + '(probability={})'.format(self.probability)
+
+
+class Crop(object):
+    def __init__(self, i, j, h, w):
+        self.i = i
+        self.j = j
+        self.h = h
+        self.w = w
+
+    def __call__(self, img):
+        """
+        Args:
+            img (PIL Image): Image to be cropped.
+
+        Returns:
+            PIL Image: Cropped image.
+        """
+        return img.crop((self.j, self.i, self.j + self.w, self.i + self.h))
