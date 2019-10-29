@@ -17,6 +17,8 @@ dependencies:
   - matplotlib=3.1.1
   - pip:
       - opencv-python==4.1.1.26
+      - albumentations==0.4.2
+      - scikit-learn==0.21.3
       - wandb
       - tensorboard==2.0.0
       - git+https://github.com/theSoenke/pytorch-trainer

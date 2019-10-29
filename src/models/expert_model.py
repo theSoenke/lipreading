@@ -135,7 +135,9 @@ class ExpertModel(Module):
         plt.xlabel('Degree')
         plt.ylabel('Attention')
 
-        path = f"attention_seed_{self.hparams.seed}_epoch_{self.epoch}.png"
+        directory = "data/viz/lrw"
+        os.makedirs(directory, exist_ok=True)
+        path = f"{directory}/attention_seed_{self.hparams.seed}_epoch_{self.epoch}.png"
         plt.savefig(path)
         self.logger.save_file(path)
         plt.clf()

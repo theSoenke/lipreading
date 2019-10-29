@@ -31,7 +31,7 @@ class ExpertEarlyAttnModel(Module):
 
         self.joined_backend = JoinedBackend(num_classes=hparams.words)
         load_checkpoint(ckpt_center, self.joined_backend, strict=False)
-        # self.joined_backend.freeze()
+        self.joined_backend.freeze()
 
         self.loss = NLLSequenceLoss()
         self.attention = Attention(attention_dim=40, num_experts=3)
@@ -139,7 +139,9 @@ class ExpertEarlyAttnModel(Module):
         plt.xlabel('Degree')
         plt.ylabel('Attention')
 
-        path = f"attention_seed_{self.hparams.seed}_epoch_{self.epoch}.png"
+        directory = "data/viz/lrw"
+        os.makedirs(directory, exist_ok=True)
+        path = f"{directory}/attention_seed_{self.hparams.seed}_epoch_{self.epoch}.png"
         plt.savefig(path)
         self.logger.save_file(path)
         plt.clf()
