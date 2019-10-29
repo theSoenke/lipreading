@@ -31,10 +31,10 @@ class ExpertEarlyAttnModel(Module):
 
         self.joined_backend = JoinedBackend(num_classes=hparams.words)
         load_checkpoint(ckpt_center, self.joined_backend, strict=False)
-        # self.joined_backend.freeze()
+        self.joined_backend.freeze()
 
         self.loss = NLLSequenceLoss()
-        self.attention = Attention(attention_dim=40, num_experts=3)
+        self.attention = Attention(attention_dim=40, num_experts=29*256*3)
         self.softmax = nn.LogSoftmax(dim=2)
 
         self.epoch = 0
@@ -45,7 +45,7 @@ class ExpertEarlyAttnModel(Module):
         center = self.center_expert(x)
         right = self.right_expert(x)
         context = self.attention(yaws)
-        attn = context.split(split_size=1, dim=1)
+        attn = context.split(split_size=29*256, dim=1)
 
         left_flat = left.view(x.size(0), -1) * attn[0]
         center_flat = center.view(x.size(0), -1) * attn[1]
@@ -85,7 +85,7 @@ class ExpertEarlyAttnModel(Module):
         }
 
     def validation_end(self, outputs):
-        self.visualize_attention(outputs)
+        # self.visualize_attention(outputs)
 
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         avg_acc = torch.stack([x['val_acc'] for x in outputs]).mean()
