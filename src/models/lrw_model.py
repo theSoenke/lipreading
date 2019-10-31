@@ -149,6 +149,7 @@ class LRWModel(Module):
         plt.savefig(path)
         self.logger.save_file(path)
         plt.clf()
+        plt.close()
 
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
