@@ -17,8 +17,6 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
-    parser.add_argument("--words", type=int, default=10)
-    parser.add_argument("--query", type=str, default=None)
     parser.add_argument("--workers", type=int, default=None)
     parser.add_argument("--resnet", type=int, default=18)
     parser.add_argument("--pretrained", default=True, type=lambda x: (str(x).lower() == 'true'))
@@ -28,16 +26,16 @@ if __name__ == "__main__":
     checkpoint_callback = ModelCheckpoint(
         directory=args.checkpoint_dir,
         save_best_only=True,
-        monitor='val_acc',
-        mode='max',
-        prefix=f"lrw_{args.words}"
+        monitor='val_wer',
+        mode='min',
+        prefix=f"lrs2"
     )
 
     early_stop_callback = EarlyStopping(
-        monitor='val_acc',
+        monitor='val_wer',
         min_delta=0.00,
         patience=10,
-        mode='max'
+        mode='min'
     )
 
     args.workers = psutil.cpu_count(logical=False) if args.workers == None else args.workers
@@ -48,7 +46,7 @@ if __name__ == "__main__":
         augmentations=False,
     )
     logger = WandbLogger(
-        project='lipreading',
+        project='lrs2',
         model=model,
     )
     model.logger = logger
@@ -68,8 +66,8 @@ if __name__ == "__main__":
     if args.checkpoint != None:
         load_checkpoint(args.checkpoint, model, optimizer=None)
         logs = trainer.validate(model)
-        # logger.log_metrics({'val_acc': logs['val_acc'], 'val_los': logs['val_loss']})
-        # print(f"Initial val_acc: {logs['val_acc']:.4f}")
+        logger.log_metrics(logs)
+        print(f"Initial validation: wer: {logs['val_wer']:.4f}, cer: {logs['val_cer']:.4f}")
 
     trainer.fit(model)
     logger.save_file(checkpoint_callback.last_checkpoint_path)
