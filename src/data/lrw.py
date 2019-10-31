@@ -30,6 +30,7 @@ class LRWDataset(Dataset):
         self.in_channels = in_channels
         self.query = query
         self.augmentation = augmentations if mode == 'train' else False
+        self.poses = None
         if estimate_pose == False:
             self.poses = self.head_poses(mode, query)
         self.video_paths, self.files, self.labels, self.words = self.build_file_list(path, mode)

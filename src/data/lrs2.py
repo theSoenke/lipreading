@@ -81,28 +81,28 @@ class LRS2Dataset(Dataset):
         encoded = []
         for i, char in enumerate(sentence):
             encoded.append(self.char2int[char])
-        return frames, encoded, frames.size(0), idx
+        return frames, encoded, frames.size(0), idx, file
 
 
 def extract_angles(path, output_path, num_workers):
     from src.data.preprocess.pose_hopenet import HeadPose
     head_pose = HeadPose()
 
-    words = None
+    os.makedirs(output_path, exist_ok=True)
     for mode in ['train', 'val', 'test']:
-        dataset = LRS2Dataset(path=path, mode=mode, estimate_pose=True)
-        data_loader = DataLoader(dataset, batch_size=256, shuffle=False, num_workers=num_workers)
+        dataset = LRS2Dataset(path=path, mode=mode, in_channels=3, estimate_pose=True)
+        data_loader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=num_workers)
         lines = ""
         with tqdm(total=len(dataset)) as progress:
             for batch in data_loader:
-                frames = batch['frames']
-                files = batch['file']
-                batch_size = len(batch['frames'])
+                frames, _, _,  _, files = batch
                 for i, video in enumerate(frames):
-                    yaws = head_pose.predict(frames)['yaw']
-                    line = f"{files[i]},{yaws.cpu().numpy():.2f}\n"
+                    video = video.transpose(1, 0)  # Seq C H W
+                    yaws = head_pose.predict(video)['yaw']
+                    yaws = ";".join([f"{yaw:.2f}" for yaw in yaws.cpu().numpy()])
+                    line = f"{files[i]},{yaws}\n"
                     lines += line
-                progress.update(batch_size)
+                    progress.update(1)
         file = open(f"{output_path}/{mode}.txt", "w")
         file.write(lines)
         file.close()
