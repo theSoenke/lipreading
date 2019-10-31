@@ -19,3 +19,5 @@ for url in "${urls[@]}"; do
 done
 
 cat $dir/lrs2_v1_parta* > $dir/lrs2_v1.tar
+echo "Extracting data"
+tar xf $dir/lrs2_v1.tar

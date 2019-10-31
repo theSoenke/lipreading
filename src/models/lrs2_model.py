@@ -39,7 +39,8 @@ class LRS2Model(Module):
         self.fc = nn.Linear(256 * 2, hparams.words)
         self.softmax = nn.LogSoftmax(dim=2)
         self.loss = nn.CTCLoss(reduction='none', zero_infinity=True)
-        self.decoder = Decoder(self.train_dataloader.dataset.characters)
+        char_list = [char for char in self.train_dataloader.dataset.characters]
+        self.decoder = Decoder(char_list)
 
         self.epoch = 0
 
