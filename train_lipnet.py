@@ -1,13 +1,11 @@
 import argparse
 
 import psutil
+from pytorch_trainer import (EarlyStopping, ModelCheckpoint, Trainer,
+                             WandbLogger)
 
 from src.checkpoint import load_checkpoint
 from src.models.lipnet_model import LipNetModel
-from src.trainer.early_stopping import EarlyStopping
-from src.trainer.model_checkpoint import ModelCheckpoint
-from src.trainer.trainer import Trainer
-from src.trainer.wandb_logger import WandbLogger
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

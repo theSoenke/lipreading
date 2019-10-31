@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import torch
 import torchvision.transforms as transforms
 from pytorch_trainer import Module, data_loader
@@ -83,12 +84,11 @@ class LRS2Model(Module):
         }
 
     def validation_end(self, outputs):
-        predictions = torch.cat([x['predictions'] for x in outputs]).numpy()
-        ground_truth = torch.cat([x['ground_truth'] for x in outputs]).numpy()
+        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
+        predictions = np.concatenate([x['predictions'] for x in outputs])
+        ground_truth = np.concatenate([x['ground_truth'] for x in outputs])
         wer = self.decoder.wer_batch(predictions, ground_truth)
         cer = self.decoder.cer_batch(predictions, ground_truth)
-
-        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
 
         if self.best_val_wer < wer:
             self.best_val_wer = wer
@@ -102,7 +102,8 @@ class LRS2Model(Module):
         self.epoch += 1
         return {
             'val_loss': avg_loss,
-            'val_acc': avg_acc,
+            'val_wer': wer,
+            'val_cer': cer,
             'log': logs,
         }
 
