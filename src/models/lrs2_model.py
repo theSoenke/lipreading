@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 
 from src.data.ctc_utils import ctc_collate
 from src.data.lrs2 import LRS2Dataset
+from src.models.ctc_decoder import Decoder
 from src.models.resnet import ResNetModel
 
 
@@ -19,7 +20,7 @@ class LRS2Model(Module):
         self.in_channels = in_channels
         self.augmentations = augmentations
 
-        self.best_val_acc = 0
+        self.best_val_wer = 1.0
 
         self.frontend = nn.Sequential(
             nn.Conv3d(self.in_channels, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
@@ -38,6 +39,7 @@ class LRS2Model(Module):
         self.fc = nn.Linear(256 * 2, hparams.words)
         self.softmax = nn.LogSoftmax(dim=2)
         self.loss = nn.CTCLoss(reduction='none', zero_infinity=True)
+        self.decoder = Decoder(self.train_dataloader.dataset.characters)
 
         self.epoch = 0
 
@@ -51,11 +53,6 @@ class LRS2Model(Module):
 
     def training_step(self, batch):
         frames, y, lengths, y_lengths, idx = batch
-        # lengths = batch['lengths']
-        # y_lengths = batch['y_lengths']
-        # target = batch['target']
-        # frames = batch['frames']
-
         output = self.forward(frames)
         logits = output.transpose(0, 1)
         loss_all = self.loss(F.log_softmax(logits, dim=-1), y, lengths, y_lengths)
@@ -69,32 +66,37 @@ class LRS2Model(Module):
         return {'log': logs}
 
     def validation_step(self, batch):
-        frames = batch['frames']
-        labels = batch['label']
-        words = batch['word']
+        frames, y, lengths, y_lengths, idx = batch
+
         output = self.forward(frames)
-        loss = self.loss(output, labels.squeeze(1))
-        acc = accuracy(output, labels)
-        sums = torch.sum(output, dim=1)
-        _, predicted = sums.max(dim=1)
+        output = output.transpose(0, 1)
+
+        loss_all = self.loss(F.log_softmax(output, dim=-1), y, lengths, y_lengths)
+        loss = loss_all.mean()
+
+        predicted, gt = self.decoder.predict(frames.size(0), output, y, lengths, y_lengths, n_show=5, mode='greedy')
+
         return {
             'val_loss': loss,
-            'val_acc': acc,
             'predictions': predicted,
-            'labels': labels.squeeze(dim=1),
-            'words': words,
+            'ground_truth': gt,
         }
 
     def validation_end(self, outputs):
-        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-        avg_acc = torch.stack([x['val_acc'] for x in outputs]).mean()
+        predictions = torch.cat([x['predictions'] for x in outputs]).numpy()
+        ground_truth = torch.cat([x['ground_truth'] for x in outputs]).numpy()
+        wer = self.decoder.wer_batch(predictions, ground_truth)
+        cer = self.decoder.cer_batch(predictions, ground_truth)
 
-        if self.best_val_acc < avg_acc:
-            self.best_val_acc = avg_acc
+        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
+
+        if self.best_val_wer < wer:
+            self.best_val_wer = wer
         logs = {
             'val_loss': avg_loss,
-            'val_acc': avg_acc,
-            'best_val_acc': self.best_val_acc
+            'val_cer': cer,
+            'val_wer': wer,
+            'best_val_acc': self.best_val_wer
         }
 
         self.epoch += 1
