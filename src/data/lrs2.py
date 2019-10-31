@@ -13,6 +13,7 @@ from tqdm import tqdm
 
 class LRS2Dataset(Dataset):
     def __init__(self, path, in_channels=1, mode="train", augmentations=False, estimate_pose=False):
+        self.max_timesteps = 160
         self.in_channels = in_channels
         self.augmentation = augmentations if mode == 'train' else False
         self.video_paths, self.files = self.build_file_list(path, mode)
@@ -25,12 +26,12 @@ class LRS2Dataset(Dataset):
         paths = []
         for file in content.splitlines():
             file_list.append(file)
-            paths.append(f"{directory}/{file}.mp4")
+            paths.append(f"{directory}/mvlrs_v1/main/{file}.mp4")
 
         return paths, file_list
 
     def build_tensor(self, frames):
-        temporalVolume = torch.FloatTensor(29, self.in_channels, 112, 112)
+        temporalVolume = torch.zeros(self.max_timesteps, self.in_channels, 112, 112)
         if(self.augmentation):
             augmentations = transforms.Compose([])  # TODO
         else:
@@ -54,7 +55,7 @@ class LRS2Dataset(Dataset):
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
             ])
 
-        for i in range(0, 29):
+        for i in range(0, len(frames)):
             frame = frames[i].permute(2, 0, 1)  # (C, H, W)
             temporalVolume[i] = transform(frame)
 
@@ -73,12 +74,17 @@ class LRS2Dataset(Dataset):
         # else:
         #     yaw = self.poses[file]
 
-        sample = {
-            'frames': frames,
-            'file': self.files[idx],
-            'yaws': torch.FloatTensor([0]),
-        }
-        return sample
+        # sample = {
+        #     'frames': frames,
+        #     'file': self.files[idx],
+        #     'yaws': torch.FloatTensor([0]),
+        #     'target': None,
+        #     'lengths': None,
+        #     'y_lengths': None,
+        # }
+
+        sentence = [0, 1]
+        return frames, sentence, frames.size(0), idx
 
 
 def extract_angles(path, output_path, num_workers):

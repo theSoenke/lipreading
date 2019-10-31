@@ -10,6 +10,7 @@ from progressbar import *
 from skimage import io
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import default_collate
+from src.data.utils import ctc_collate
 
 from augmentation import read_data
 
