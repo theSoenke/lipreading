@@ -1,4 +1,4 @@
-FROM nvidia/cuda:10.0-base
+FROM nvidia/cuda:10.0-devel
 
 RUN apt-get update && apt-get install -y \
     curl \
@@ -7,7 +7,8 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev \
     ffmpeg \
     cmake \
-    libsm6
+    libsm6 \
+    git
 
 RUN curl -o ~/miniconda.sh -O  https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh  && \
      chmod +x ~/miniconda.sh && \
@@ -20,5 +21,8 @@ WORKDIR /project
 COPY environment.yml .
 RUN conda env create -f environment.yml
 COPY . .
+
+RUN git clone --recursive https://github.com/parlance/ctcdecode.git
+RUN conda activate lipreading && pip install .
 
 CMD ["./scripts/docker/run.sh"]
