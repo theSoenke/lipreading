@@ -1,5 +1,6 @@
 import os
 import random
+from string import ascii_lowercase
 
 import psutil
 import torch
@@ -16,8 +17,14 @@ class LRS2Dataset(Dataset):
         self.max_timesteps = 160
         self.in_channels = in_channels
         self.augmentation = augmentations if mode == 'train' else False
-        self.video_paths, self.files = self.build_file_list(path, mode)
+        self.file_paths, self.file_names = self.build_file_list(path, mode)
         self.estimate_pose = estimate_pose
+
+        numbers = "".join([str(i) for i in range(10)])
+        special_characters = " '"
+        characters = ascii_lowercase + numbers + special_characters
+        int2char = dict(enumerate(characters))
+        self.char2int = {char: index for index, char in int2char.items()}
 
     def build_file_list(self, directory, mode):
         file = open(f"{directory}/{mode}.txt", "r")
@@ -26,7 +33,7 @@ class LRS2Dataset(Dataset):
         paths = []
         for file in content.splitlines():
             file_list.append(file)
-            paths.append(f"{directory}/mvlrs_v1/main/{file}.mp4")
+            paths.append(f"{directory}/mvlrs_v1/main/{file}")
 
         return paths, file_list
 
@@ -63,28 +70,18 @@ class LRS2Dataset(Dataset):
         return temporalVolume
 
     def __len__(self):
-        return len(self.video_paths)
+        return len(self.file_paths)
 
     def __getitem__(self, idx):
-        file = self.files[idx]
-        video, _, _ = torchvision.io.read_video(self.video_paths[idx])  # (Tensor[T, H, W, C])
+        file = self.file_names[idx]
+        video, _, _ = torchvision.io.read_video(self.file_paths[idx] + ".mp4")  # (Tensor[T, H, W, C])
         frames = self.build_tensor(video)
-        # if self.estimate_pose:
-        #     yaw = 0
-        # else:
-        #     yaw = self.poses[file]
-
-        # sample = {
-        #     'frames': frames,
-        #     'file': self.files[idx],
-        #     'yaws': torch.FloatTensor([0]),
-        #     'target': None,
-        #     'lengths': None,
-        #     'y_lengths': None,
-        # }
-
-        sentence = [0, 1]
-        return frames, sentence, frames.size(0), idx
+        content = open(self.file_paths[idx] + ".txt", "r").read()
+        sentence = content.splitlines()[0][7:].lower()
+        encoded = []
+        for i, char in enumerate(sentence):
+            encoded.append(self.char2int[char])
+        return frames, encoded, frames.size(0), idx
 
 
 def extract_angles(path, output_path, num_workers):
