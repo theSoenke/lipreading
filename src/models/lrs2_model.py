@@ -20,8 +20,8 @@ class LRS2Model(Module):
         self.in_channels = in_channels
         self.augmentations = augmentations
 
-        self.best_val_wer = 1.0
-
+        char_list = [char for char in self.train_dataloader.dataset.characters]
+        self.decoder = Decoder(char_list)
         self.frontend = nn.Sequential(
             nn.Conv3d(self.in_channels, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
             nn.BatchNorm3d(64),
@@ -36,12 +36,11 @@ class LRS2Model(Module):
             batch_first=True,
             bidirectional=True
         )
-        self.fc = nn.Linear(256 * 2, hparams.words)
+        self.fc = nn.Linear(512, len(char_list))
         self.softmax = nn.LogSoftmax(dim=2)
         self.loss = nn.CTCLoss(reduction='none', zero_infinity=True)
-        char_list = [char for char in self.train_dataloader.dataset.characters]
-        self.decoder = Decoder(char_list)
 
+        self.best_val_wer = 1.0
         self.epoch = 0
 
     def forward(self, x):
