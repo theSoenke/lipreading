@@ -1,9 +1,11 @@
 import argparse
+import os
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
+import wget
 from PIL import Image
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -12,7 +14,9 @@ from src.models.hopenet.hopenet import Hopenet
 
 
 class HeadPose():
-    def __init__(self, checkpoint='data/hopenet/hopenet_robust_alpha1.pkl', transform=None):
+    def __init__(self, checkpoint_path='data/hopenet/hopenet_robust_alpha1.pkl', transform=None):
+        if not os.path.exists(checkpoint_path):
+            self.download_model(checkpoint_path)
         self.transform = transform
         if self.transform is None:
             self.transform = transforms.Compose([
@@ -25,10 +29,16 @@ class HeadPose():
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.idx_tensor = torch.FloatTensor([idx for idx in range(num_bins)]).to(self.device)
         self.model = Hopenet()
-        checkpoint = torch.load(checkpoint)
+        checkpoint = torch.load(checkpoint_path)
         self.model.load_state_dict(checkpoint, strict=False)
         self.model.to(self.device)
         self.model.eval()
+
+    def download_model(self, path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        print("Downloading hopenet model")
+        url = "https://github.com/theSoenke/headpose/releases/download/0.1.0/hopenet.pkl"
+        wget.download(url, path)
 
     @torch.no_grad()
     def predict(self, image):

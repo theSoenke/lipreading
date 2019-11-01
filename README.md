@@ -5,16 +5,18 @@
 - Install [ctcdecode](https://github.com/parlance/ctcdecode)
 - `conda env create -f environment.yml`
 
-## Preprocess
+## LRW
 
-    ./scripts/dlib_model.sh
+    USER=$USER PASSWORD=$PASS ./scripts/lrw_download.sh data/datasets/lrw
     python3 preprocess.py lrw --data data/datasets/lrw
-
-## Train
-
     python3 train.py --data data/lrw --words 10
 
-### Docker
+### Train in Docker
 
-    ./scripts/docker/train.sh /data/datasets/lrw
+    ./scripts/docker/train.sh data/datasets/lrw
 
+## Train LRS2
+
+    USER=$USER PASSWORD=$PASS ./scripts/lrs2_download.sh data/datasets/lrs2
+    python3 preprocess.py lrs2 --data data/datasets/lrs2
+    python3 train_ctc.py --data data/datasets/lrs2

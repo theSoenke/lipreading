@@ -12,7 +12,7 @@ urls=(
     "http://www.robots.ox.ac.uk/~vgg/data/lip_reading/data3/lrs3_test_v0.4.zip"
 )
 
-dir=data/datasets/lrs3
+dir=${1:-"data/datasets/lrs3"}
 mkdir -p $dir
 for url in "${urls[@]}"; do
     wget --user $USER --password $PASSWORD -P $dir $url

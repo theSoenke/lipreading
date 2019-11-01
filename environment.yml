@@ -22,6 +22,7 @@ dependencies:
       - wandb
       - tensorboard==2.0.0
       - git+https://github.com/theSoenke/pytorch-trainer
+      - wget
       # - pillow-simd
       # - imutils==0.5.2
       # - dlib==19.17.0
