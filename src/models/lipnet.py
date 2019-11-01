@@ -1,15 +1,30 @@
 import math
+import os
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.transforms as transforms
+from pytorch_trainer import Module, data_loader
+from torch import nn as nn
+from torch import optim
+from torch.nn import functional as F
 from torch.nn import init
 from torch.utils.data import DataLoader
 
+from src.data.ctc_utils import ctc_collate
+from src.data.grid import GRIDDataset
+from src.models.ctc_decoder import Decoder
 
-class LipNet(nn.Module):
-    def __init__(self, vocab_size):
+
+class LipNet(Module):
+    def __init__(self, hparams):
         super().__init__()
+        self.hparams = hparams
+        self.vocab = GRIDDataset(path=self.hparams.data).vocab
+        self.vocab_size = len(self.vocab)
+        self.decoder = Decoder(self.vocab)
+        self.loss = nn.CTCLoss(reduction='none', zero_infinity=True)
         self.dropout = 0.5
         self.rnn_size = 256
         self.conv = nn.Sequential(
@@ -30,7 +45,7 @@ class LipNet(nn.Module):
         self.drp1 = nn.Dropout(self.dropout)
         self.gru2 = nn.GRU(self.rnn_size * 2, self.rnn_size, 1, bidirectional=True)
         self.drp2 = nn.Dropout(self.dropout)
-        self.pred = nn.Linear(self.rnn_size * 2, vocab_size + 1)
+        self.pred = nn.Linear(self.rnn_size * 2, self.vocab_size + 1)
 
         for m in self.conv.modules():
             if isinstance(m, nn.Conv3d):
@@ -61,3 +76,80 @@ class LipNet(nn.Module):
         x = self.pred(x)
 
         return x
+
+    def training_step(self, batch, batch_nb):
+        x, y, lengths, y_lengths, idx = batch
+        logits = self.forward(x)
+        loss_all = self.loss(F.log_softmax(logits, dim=-1), y, lengths, y_lengths)
+        loss = loss_all.mean()
+
+        weight = torch.ones_like(loss_all)
+        dlogits = torch.autograd.grad(loss_all, logits, grad_outputs=weight)[0]
+        logits.backward(dlogits)
+
+        logs = {'train_loss': loss}
+        return {'log': logs}
+
+    def validation_step(self, batch, batch_nb):
+        x, y, lengths, y_lengths, idx = batch
+        logits = self.forward(x)
+        loss_all = self.loss(F.log_softmax(logits, dim=-1), y, lengths, y_lengths)
+        loss = loss_all.mean()
+
+        decoded, gt = self.decoder.predict(x.size(0), logits, y, lengths, y_lengths, n_show=5, mode='greedy')
+        return {'val_loss': loss, 'pred': decoded, 'gt': gt}
+
+    def validation_end(self, outputs):
+        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
+        pred, gt = [], []
+        for out in outputs:
+            pred.extend(out['pred'])
+            gt.extend(out['gt'])
+        wer = self.decoder.wer_batch(pred, gt)
+        cer = self.decoder.cer_batch(pred, gt)
+
+        logs = {'val_loss': avg_loss, 'val_wer': wer, 'val_cer': cer}
+        return {
+            'val_loss': avg_loss,
+            'log': logs,
+        }
+
+    def configure_optimizers(self):
+        return optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
+
+    @data_loader
+    def train_dataloader(self):
+        train_data = GRIDDataset(path=self.hparams.data, augmentation=True)
+        train_loader = DataLoader(
+            train_data,
+            shuffle=True,
+            batch_size=self.hparams.batch_size,
+            collate_fn=ctc_collate,
+            num_workers=self.hparams.workers,
+            pin_memory=True,
+        )
+        return train_loader
+
+    @data_loader
+    def val_dataloader(self):
+        val_data = GRIDDataset(path=self.hparams.data, mode='val')
+        val_loader = DataLoader(
+            val_data,
+            shuffle=False,
+            batch_size=self.hparams.batch_size * 2,
+            collate_fn=ctc_collate,
+            num_workers=self.hparams.workers,
+        )
+        return val_loader
+
+    @data_loader
+    def test_dataloader(self):
+        val_data = GRIDDataset(path=self.hparams.data, mode='test')
+        val_loader = DataLoader(
+            val_data,
+            shuffle=False,
+            batch_size=self.hparams.batch_size * 2,
+            collate_fn=ctc_collate,
+            num_workers=self.hparams.workers,
+        )
+        return val_loader
