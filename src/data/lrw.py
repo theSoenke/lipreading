@@ -38,7 +38,7 @@ class LRWDataset(Dataset):
 
     def head_poses(self, mode, query):
         poses = {}
-        yaw_file = open(f"data/preprocess/{mode}.txt", "r")
+        yaw_file = open(f"data/preprocess/lrw/{mode}.txt", "r")
         content = yaw_file.read()
         for line in content.splitlines():
             file, yaw = line.split(",")
