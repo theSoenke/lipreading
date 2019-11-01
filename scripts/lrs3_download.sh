@@ -19,3 +19,6 @@ for url in "${urls[@]}"; do
 done
 
 cat $dir/lrs3_pretrain_part* > $dir/lrs3_pretrain.zip
+unzip $dir/lrs3_pretrain.zip
+mkdir -p data/datasets
+ln -sf $dir data/datasets/lrs3

@@ -20,9 +20,9 @@ dependencies:
       - albumentations==0.4.2
       - scikit-learn==0.21.3
       - wandb
-      - tensorboard==2.0.0
-      - git+https://github.com/theSoenke/pytorch-trainer
       - wget
+      - git+https://github.com/theSoenke/pytorch-trainer
+      # - tensorboard==2.0.0
       # - pillow-simd
       # - imutils==0.5.2
       # - dlib==19.17.0

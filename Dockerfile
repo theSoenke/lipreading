@@ -20,8 +20,13 @@ ENV PATH=$PATH:/opt/conda/bin/
 WORKDIR /project
 COPY environment.yml .
 RUN conda env create -f environment.yml
-RUN git clone --recursive https://github.com/parlance/ctcdecode.git
-RUN cd ctcdecode && bash -c 'source activate lipreading; pip install wget; pip install .'
-COPY . .
 
-CMD ["./scripts/docker/run.sh"]
+RUN echo "source activate lipreading" > ~/.bashrc
+ENV PATH /opt/conda/envs/env/bin:$PATH
+ENV BASH_ENV ~/.bashrc
+SHELL ["/bin/bash", "-c"]
+
+RUN git clone --recursive https://github.com/parlance/ctcdecode.git
+RUN cd ctcdecode && pip install .
+
+COPY . .

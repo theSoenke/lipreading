@@ -10,8 +10,8 @@ from src.models.lrs2_model import LRS2Model
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data', required=True)
-    parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints/lrw')
+    parser.add_argument('--data', default="data/datasets/lrs2")
+    parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints/lrs2')
     parser.add_argument("--checkpoint", type=str)
     parser.add_argument("--batch_size", type=int, default=6)
     parser.add_argument("--epochs", type=int, default=20)

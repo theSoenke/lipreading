@@ -21,3 +21,5 @@ done
 cat $dir/lrs2_v1_parta* > $dir/lrs2_v1.tar
 echo "Extracting data"
 tar xf $dir/lrs2_v1.tar
+mkdir -p data/datasets
+ln -sf $dir data/datasets/lrs2

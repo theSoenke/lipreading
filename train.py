@@ -10,7 +10,7 @@ from src.models.lrw_model import LRWModel
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data', required=True)
+    parser.add_argument('--data', default="data/datasets/lrw")
     parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints/lrw')
     parser.add_argument("--checkpoint", type=str)
     parser.add_argument("--batch_size", type=int, default=24)
