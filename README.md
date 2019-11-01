@@ -19,9 +19,5 @@
 
 ## Train in Docker
 
-    ./scripts/docker/train.sh "<command>"
-
-### Sample
-
-    ./scripts/docker/train.sh "python train.py --words 10"
-
+    ./scripts/docker/build.sh
+    docker run -it --rm --ipc=host -e WANDB_API_KEY=<API_KEY> --runtime nvidia -v /data/lrw:/project/data/datasets/lrw lipreading python train.py
