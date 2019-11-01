@@ -84,7 +84,10 @@ class LRS2Dataset(Dataset):
             encoded.append(self.char2int[char])
 
         input_lengths = video.size(0)
-        return frames, encoded, input_lengths, idx, file
+        if self.estimate_pose:
+            return frames, encoded, input_lengths, idx, file
+
+        return frames, encoded, input_lengths, idx
 
 
 def extract_angles(path, output_path, num_workers):
