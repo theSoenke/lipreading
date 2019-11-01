@@ -7,6 +7,7 @@ from pytorch_trainer import Module, data_loader
 from torch import nn, optim
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
+import wandb
 
 from src.data.ctc_utils import ctc_collate
 from src.data.lrs2 import LRS2Dataset
@@ -75,20 +76,24 @@ class LRS2Model(Module):
         loss_all = self.loss(F.log_softmax(output, dim=-1), y, lengths, y_lengths)
         loss = loss_all.mean()
 
-        predicted, gt = self.decoder.predict(frames.size(0), output, y, lengths, y_lengths, n_show=5, mode='greedy')
+        predicted, gt, samples = self.decoder.predict(frames.size(0), output, y, lengths, y_lengths, n_show=3, mode='greedy')
 
         return {
             'val_loss': loss,
             'predictions': predicted,
             'ground_truth': gt,
+            'samples': samples,
         }
 
     def validation_end(self, outputs):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         predictions = np.concatenate([x['predictions'] for x in outputs])
         ground_truth = np.concatenate([x['ground_truth'] for x in outputs])
+        samples = np.concatenate([x['samples'] for x in outputs])
         wer = self.decoder.wer_batch(predictions, ground_truth)
         cer = self.decoder.cer_batch(predictions, ground_truth)
+
+        self.logger.log_metrics({"samples": wandb.Table(data=samples, columns=["Truth", "Predicted"])})
 
         if self.best_val_wer < wer:
             self.best_val_wer = wer

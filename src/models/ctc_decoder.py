@@ -85,7 +85,7 @@ class Decoder:
 
         return self.get_mean(decoded, gt, mean_indiv_len, self.wer_sentence)
 
-    def predict(self, batch_size, logits, y, lengths, y_lengths, n_show=5, mode='greedy', log=False):
+    def predict(self, batch_size, logits, y, lengths, y_lengths, n_show=5, mode='greedy'):
         if mode == 'greedy':
             decoded = self.decode_greedy(logits, lengths)
         elif mode == 'beam':
@@ -94,11 +94,12 @@ class Decoder:
         cursor = 0
         gt = []
         n = min(n_show, logits.size(1))
+        samples = []
         for b in range(batch_size):
             y_str = ''.join([self.vocab_list[ch] for ch in y[cursor: cursor + y_lengths[b]]])
             gt.append(y_str)
             cursor += y_lengths[b]
-            if log and b < n:
-                print(f'Test seq {b + 1}: {y_str}; pred_{mode}: {decoded[b]}')
+            if b < n:
+                samples.append([y_str, decoded[b]])
 
-        return decoded, gt
+        return decoded, gt, samples

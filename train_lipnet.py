@@ -5,7 +5,7 @@ from pytorch_trainer import (EarlyStopping, ModelCheckpoint, Trainer,
                              WandbLogger)
 
 from src.checkpoint import load_checkpoint
-from src.models.lipnet_model import LipNetModel
+from src.models.lipnet import LipNet
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     args.workers = psutil.cpu_count(logical=False) if args.workers == None else args.workers
     args.pretrained = False if args.checkpoint != None else args.pretrained
-    model = LipNetModel(args)
+    model = LipNet(args)
     logger = WandbLogger(
         project='grid',
         model=model,

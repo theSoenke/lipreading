@@ -19,8 +19,8 @@ ENV PATH=$PATH:/opt/conda/bin/
 
 WORKDIR /project
 COPY environment.yml .
-RUN conda env create -f environment.yml \
-    && conda clean -afy
+RUN conda env create -f environment.yml && \
+    conda clean -afy
 
 RUN git clone --recursive https://github.com/parlance/ctcdecode.git
 RUN conda run -n lipreading cd ctcdecode && pip install .

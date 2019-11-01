@@ -1,6 +1,7 @@
 import math
 import os
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -101,12 +102,11 @@ class LipNet(Module):
 
     def validation_end(self, outputs):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-        pred, gt = [], []
-        for out in outputs:
-            pred.extend(out['pred'])
-            gt.extend(out['gt'])
-        wer = self.decoder.wer_batch(pred, gt)
-        cer = self.decoder.cer_batch(pred, gt)
+        predictions = np.concatenate([x['predictions'] for x in outputs])
+        ground_truth = np.concatenate([x['ground_truth'] for x in outputs])
+
+        wer = self.decoder.wer_batch(predictions, ground_truth)
+        cer = self.decoder.cer_batch(predictions, ground_truth)
 
         logs = {'val_loss': avg_loss, 'val_wer': wer, 'val_cer': cer}
         return {
