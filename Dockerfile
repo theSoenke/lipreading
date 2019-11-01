@@ -23,7 +23,7 @@ RUN conda env create -f environment.yml && \
     conda clean -afy
 
 RUN git clone --recursive https://github.com/parlance/ctcdecode.git
-RUN conda run -n lipreading cd ctcdecode && pip install .
+RUN cd ctcdecode && conda run -n lipreading pip install .
 
 COPY . .
 

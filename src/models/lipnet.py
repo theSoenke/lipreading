@@ -97,7 +97,7 @@ class LipNet(Module):
         loss_all = self.loss(F.log_softmax(logits, dim=-1), y, lengths, y_lengths)
         loss = loss_all.mean()
 
-        decoded, gt = self.decoder.predict(x.size(0), logits, y, lengths, y_lengths, n_show=5, mode='greedy')
+        decoded, gt, _ = self.decoder.predict(x.size(0), logits, y, lengths, y_lengths, n_show=5, mode='greedy')
         return {'val_loss': loss, 'pred': decoded, 'gt': gt}
 
     def validation_end(self, outputs):
