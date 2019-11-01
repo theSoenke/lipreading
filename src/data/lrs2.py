@@ -32,6 +32,7 @@ class LRS2Dataset(Dataset):
         file_list = []
         paths = []
         for file in content.splitlines():
+            file = file.split(" ")[0]
             file_list.append(file)
             paths.append(f"{directory}/mvlrs_v1/main/{file}")
 
@@ -74,14 +75,16 @@ class LRS2Dataset(Dataset):
 
     def __getitem__(self, idx):
         file = self.file_names[idx]
-        video, _, _ = torchvision.io.read_video(self.file_paths[idx] + ".mp4")  # (Tensor[T, H, W, C])
+        video, _, _ = torchvision.io.read_video(self.file_paths[idx] + ".mp4")  # T, H, W, C
         frames = self.build_tensor(video)
         content = open(self.file_paths[idx] + ".txt", "r").read()
         sentence = content.splitlines()[0][7:].lower()
         encoded = []
         for i, char in enumerate(sentence):
             encoded.append(self.char2int[char])
-        return frames, encoded, frames.size(0), idx, file
+
+        input_lengths = video.size(0)
+        return frames, encoded, input_lengths, idx, file
 
 
 def extract_angles(path, output_path, num_workers):
@@ -95,12 +98,12 @@ def extract_angles(path, output_path, num_workers):
         lines = ""
         with tqdm(total=len(dataset)) as progress:
             for batch in data_loader:
-                frames, _, _,  _, files = batch
+                frames, _, input_lengths,  _, files = batch
                 for i, video in enumerate(frames):
-                    video = video.transpose(1, 0)  # Seq C H W
+                    video = video.transpose(1, 0)[:input_lengths[i]]  # T C H W
                     yaws = head_pose.predict(video)['yaw']
                     yaws = ";".join([f"{yaw:.2f}" for yaw in yaws.cpu().numpy()])
-                    line = f"{files[i]},{yaws}\n"
+                    line = f"{files[i]}:{yaws}\n"
                     lines += line
                     progress.update(1)
         file = open(f"{output_path}/{mode}.txt", "w")

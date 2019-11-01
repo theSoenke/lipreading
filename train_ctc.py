@@ -26,13 +26,13 @@ if __name__ == "__main__":
     checkpoint_callback = ModelCheckpoint(
         directory=args.checkpoint_dir,
         save_best_only=True,
-        monitor='val_wer',
+        monitor='val_cer',
         mode='min',
         prefix=f"lrs2"
     )
 
     early_stop_callback = EarlyStopping(
-        monitor='val_wer',
+        monitor='val_cer',
         min_delta=0.00,
         patience=10,
         mode='min'
