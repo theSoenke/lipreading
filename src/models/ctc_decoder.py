@@ -96,7 +96,7 @@ class Decoder:
         n = min(n_show, logits.size(1))
         samples = []
         for b in range(batch_size):
-            y_str = ''.join([self.vocab_list[ch] for ch in y[cursor: cursor + y_lengths[b]]])
+            y_str = ''.join([self.vocab_list[ch - 1] for ch in y[cursor: cursor + y_lengths[b]]])
             gt.append(y_str)
             cursor += y_lengths[b]
             if b < n:

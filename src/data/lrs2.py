@@ -22,7 +22,7 @@ class LRS2Dataset(Dataset):
 
         numbers = "".join([str(i) for i in range(10)])
         special_characters = " '"
-        self.characters = ascii_lowercase + numbers + special_characters
+        self.characters = special_characters + ascii_lowercase + numbers
         int2char = dict(enumerate(self.characters))
         self.char2int = {char: index for index, char in int2char.items()}
 
