@@ -4,9 +4,10 @@ from torch.utils.data.dataloader import default_collate
 
 def ctc_collate(batch):
     xs, ys, lens, indices = zip(*batch)
-    max_len = max(lens)
     x = default_collate(xs)
-    x.narrow(2, 0, max_len)
+    # slows training down
+    # max_len = max(lens)
+    # x = x.narrow(2, 0, max_len)
     y = []
     for sub in ys:
         y += sub
