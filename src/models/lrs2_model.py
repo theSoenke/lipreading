@@ -11,7 +11,7 @@ import wandb
 
 from src.data.ctc_utils import ctc_collate
 from src.data.lrs2 import LRS2Dataset
-from src.models.ctc_decoder import Decoder
+from src.decoder.greedy import Decoder
 from src.models.resnet import ResNetModel
 
 
@@ -22,8 +22,8 @@ class LRS2Model(Module):
         self.in_channels = in_channels
         self.augmentations = augmentations
 
-        char_list = [char for char in self.train_dataloader.dataset.characters]
-        self.decoder = Decoder(char_list)
+        characters = self.train_dataloader.dataset.characters
+        self.decoder = Decoder(self.train_dataloader.dataset.characters)
         self.frontend = nn.Sequential(
             nn.Conv3d(self.in_channels, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
             nn.BatchNorm3d(64),
@@ -38,7 +38,7 @@ class LRS2Model(Module):
             batch_first=True,
             bidirectional=True
         )
-        self.fc = nn.Linear(512, len(char_list))
+        self.fc = nn.Linear(512, len(characters))
         self.softmax = nn.LogSoftmax(dim=2)
         self.loss = nn.CTCLoss(reduction='none', zero_infinity=True)
 
@@ -76,7 +76,7 @@ class LRS2Model(Module):
         loss_all = self.loss(F.log_softmax(output, dim=-1), y, lengths, y_lengths)
         loss = loss_all.mean()
 
-        predicted, gt, samples = self.decoder.predict(frames.size(0), output, y, lengths, y_lengths, n_show=3, mode='greedy')
+        predicted, gt, samples = self.decoder.predict(frames.size(0), output, y, lengths, y_lengths, n_show=3)
         # cursor = 0
         # b = 0
         # vocab_list = self.train_dataloader.dataset.characters

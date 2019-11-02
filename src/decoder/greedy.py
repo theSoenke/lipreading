@@ -1,23 +1,25 @@
 import editdistance
 import numpy as np
 import torch
-from ctcdecode import CTCBeamDecoder
 
 
 class Decoder:
-    def __init__(self, labels, lm_path=None, alpha=1, beta=1.5, cutoff_top_n=40, cutoff_prob=0.99, beam_width=200, num_processes=24, blank_id=0):
-        self.vocab_list = labels
-        self._decoder = CTCBeamDecoder(labels, lm_path, alpha, beta, cutoff_top_n, cutoff_prob, beam_width, num_processes, blank_id)
-        self.int2char = dict([(i, c) for (i, c) in enumerate(labels)])
+    def __init__(self, vocab):
+        self.vocab_list = [char for char in vocab]
 
-    def decode_beam(self, logits, seq_lens):
-        decoded = []
-        tlogits = logits.transpose(0, 1)
-        beam_result, beam_scores, timesteps, out_seq_len = self._decoder.decode(tlogits.softmax(-1), seq_lens)
-        for i in range(tlogits.size(0)):
-            output_str = ''.join(map(lambda x: self.vocab_list[x], beam_result[i][0][:out_seq_len[i][0]]))
-            decoded.append(output_str)
-        return decoded
+    def convert_to_string(self, tokens, seq_len=None):
+        if not seq_len:
+            seq_len = tokens.size(0)
+        out = []
+        for i in range(seq_len):
+            if len(out) == 0:
+                # if tokens[i] != 0:
+                out.append(tokens[i])
+            else:
+                # if tokens[i] != 0 and tokens[i] != tokens[i - 1]:
+                if tokens[i] != tokens[i - 1]:
+                    out.append(tokens[i])
+        return ''.join(self.vocab_list[i] for i in out)
 
     def decode_greedy(self, logits, seq_lens):
         decoded = []
@@ -73,11 +75,8 @@ class Decoder:
 
         return self.get_mean(decoded, gt, mean_indiv_len, self.wer_sentence)
 
-    def predict(self, batch_size, logits, y, lengths, y_lengths, n_show=5, mode='greedy'):
-        if mode == 'greedy':
-            decoded = self.decode_greedy(logits, lengths)
-        elif mode == 'beam':
-            decoded = self, self.decode_beam(logits, lengths)
+    def predict(self, batch_size, logits, y, lengths, y_lengths, n_show=5):
+        decoded = self.decode_greedy(logits, lengths)
 
         cursor = 0
         gt = []
@@ -91,36 +90,3 @@ class Decoder:
                 samples.append([y_str, decoded[b]])
 
         return decoded, gt, samples
-
-    def convert_to_string(self, tokens, seq_len=None):
-        if not seq_len:
-            seq_len = tokens.size(0)
-        out = []
-        for i in range(seq_len):
-            if len(out) == 0:
-                if tokens[i] != 0:
-                    out.append(tokens[i])
-            else:
-                if tokens[i] != 0 and tokens[i] != tokens[i - 1]:
-                    out.append(tokens[i])
-        return ''.join(self.vocab_list[i] for i in out)
-
-    def convert_to_strings(self, out, seq_len):
-        results = []
-        for b, batch in enumerate(out):
-            utterances = []
-            for p, utt in enumerate(batch):
-                size = seq_len[b][p]
-                if size > 0:
-                    transcript = ''.join(map(lambda x: self.int2char[x.item()], utt[0:size]))
-                else:
-                    transcript = ''
-                utterances.append(transcript)
-            results.append(utterances)
-        return results
-
-    def decode(self, y, y_lengths):
-        y = y.transpose(1, 0)  # N T P -> probability of character at time t
-        out, scores, offsets, seq_lens = self._decoder.decode(y.cpu(), y_lengths)
-        strings = self.convert_to_strings(out, seq_lens)
-        return strings
