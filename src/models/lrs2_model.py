@@ -18,11 +18,12 @@ from src.models.resnet import ResNetModel
 
 
 class LRS2Model(Module):
-    def __init__(self, hparams, in_channels=1, augmentations=False):
+    def __init__(self, hparams, in_channels=1, augmentations=False, pretrain=False):
         super().__init__()
         self.hparams = hparams
         self.in_channels = in_channels
         self.augmentations = augmentations
+        self.pretrain = pretrain
 
         characters = self.train_dataloader.dataset.characters
         self.decoder = BeamDecoder(self.train_dataloader.dataset.characters)
@@ -72,6 +73,9 @@ class LRS2Model(Module):
         return {'log': logs}
 
     def validation_step(self, batch):
+        if self.pretrain:
+            pass
+
         frames, y, lengths, y_lengths, idx = batch
 
         output = self.forward(frames, lengths)
@@ -89,6 +93,9 @@ class LRS2Model(Module):
         }
 
     def validation_end(self, outputs):
+        if self.pretrain:
+            pass
+
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         predictions = np.concatenate([x['predictions'] for x in outputs])
         ground_truth = np.concatenate([x['ground_truth'] for x in outputs])
@@ -126,6 +133,7 @@ class LRS2Model(Module):
             path=self.hparams.data,
             in_channels=self.in_channels,
             augmentations=self.augmentations,
+            pretrain=self.pretrain,
         )
         train_loader = DataLoader(
             train_data,

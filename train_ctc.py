@@ -44,6 +44,7 @@ if __name__ == "__main__":
         hparams=args,
         in_channels=1,
         augmentations=False,
+        pretrain=True,
     )
     logger = WandbLogger(
         project='lrs2',
