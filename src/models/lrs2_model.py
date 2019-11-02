@@ -78,13 +78,6 @@ class LRS2Model(Module):
         loss = loss_all.mean()
 
         predicted, gt, samples = self.decoder.predict(frames.size(0), output, y, lengths, y_lengths, n_show=3)
-        # cursor = 0
-        # b = 0
-        # vocab_list = self.train_dataloader.dataset.characters
-        # strings = self.decoder.decode(output, y_lengths)
-        # import pdb; pdb.set_trace()
-        # y_str = ''.join([vocab_list[ch] for ch in y[cursor: cursor + y_lengths[b]]])
-
         return {
             'val_loss': loss,
             'predictions': predicted,
