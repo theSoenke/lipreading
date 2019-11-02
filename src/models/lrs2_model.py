@@ -2,17 +2,18 @@ import os
 
 import numpy as np
 import torch
-import torchvision.transforms as transforms
-from pytorch_trainer import Module, data_loader
 from torch import nn, optim
 from torch.nn import functional as F
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torch.utils.data import DataLoader
-import wandb
 
+import torchvision.transforms as transforms
+import wandb
+from pytorch_trainer import Module, data_loader
 from src.data.ctc_utils import ctc_collate
 from src.data.lrs2 import LRS2Dataset
-from src.decoder.greedy import GreedyDecoder
 from src.decoder.beam import BeamDecoder
+from src.decoder.greedy import GreedyDecoder
 from src.models.resnet import ResNetModel
 
 
@@ -46,17 +47,19 @@ class LRS2Model(Module):
         self.best_val_wer = 1.0
         self.epoch = 0
 
-    def forward(self, x):
+    def forward(self, x, lengths):
         x = self.frontend(x)
         x = self.resnet(x)
+        x = pack_padded_sequence(x, lengths, enforce_sorted=False, batch_first=True)
         x, _ = self.lstm(x)
+        x, _ = pad_packed_sequence(x, batch_first=True)
         x = self.fc(x)
         x = self.softmax(x)
         return x
 
     def training_step(self, batch):
         frames, y, lengths, y_lengths, idx = batch
-        output = self.forward(frames)
+        output = self.forward(frames, lengths)
         logits = output.transpose(0, 1)
         loss_all = self.loss(F.log_softmax(logits, dim=-1), y, lengths, y_lengths)
         loss = loss_all.mean()
@@ -71,7 +74,7 @@ class LRS2Model(Module):
     def validation_step(self, batch):
         frames, y, lengths, y_lengths, idx = batch
 
-        output = self.forward(frames)
+        output = self.forward(frames, lengths)
         output = output.transpose(0, 1)
 
         loss_all = self.loss(F.log_softmax(output, dim=-1), y, lengths, y_lengths)
