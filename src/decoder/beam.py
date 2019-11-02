@@ -4,12 +4,11 @@ from src.decoder.decoder import Decoder
 
 class BeamDecoder(Decoder):
     def __init__(self, vocab, lm_path=None, alpha=1, beta=1.5, cutoff_top_n=40, cutoff_prob=0.99, beam_width=200, num_processes=24, blank_id=0):
-        # super().__init__(self, vocab)
-        self._decoder = CTCBeamDecoder(self.vocab_list, lm_path, alpha, beta, cutoff_top_n, cutoff_prob, beam_width, num_processes, blank_id)
-        self.int2char = dict([(i, c) for (i, c) in enumerate(labels)])
+        super(BeamDecoder, self).__init__(vocab)
+        self._decoder = CTCBeamDecoder(vocab, lm_path, alpha, beta, cutoff_top_n, cutoff_prob, beam_width, num_processes, blank_id)
+        self.int2char = dict([(i, c) for (i, c) in enumerate(vocab)])
 
     def decode(self, logits, seq_lens):
-        decoded = []
         tlogits = logits.transpose(0, 1)
         beam_result, _, _, out_seq_len = self._decoder.decode(tlogits.softmax(-1), seq_lens)
         return self.convert_to_strings(beam_result, out_seq_len)

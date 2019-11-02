@@ -12,6 +12,7 @@ import wandb
 from src.data.ctc_utils import ctc_collate
 from src.data.lrs2 import LRS2Dataset
 from src.decoder.greedy import GreedyDecoder
+from src.decoder.beam import BeamDecoder
 from src.models.resnet import ResNetModel
 
 
@@ -23,7 +24,7 @@ class LRS2Model(Module):
         self.augmentations = augmentations
 
         characters = self.train_dataloader.dataset.characters
-        self.decoder = GreedyDecoder(self.train_dataloader.dataset.characters)
+        self.decoder = BeamDecoder(self.train_dataloader.dataset.characters)
         self.frontend = nn.Sequential(
             nn.Conv3d(self.in_channels, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
             nn.BatchNorm3d(64),
@@ -103,7 +104,7 @@ class LRS2Model(Module):
 
         # self.logger.log_metrics({"samples": wandb.Table(data=samples, columns=["Sentence", "Predicted"])})
 
-        if self.best_val_wer < wer:
+        if self.best_val_wer > wer:
             self.best_val_wer = wer
         logs = {
             'val_loss': avg_loss,

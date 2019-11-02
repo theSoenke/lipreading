@@ -1,4 +1,3 @@
-import editdistance
 import numpy as np
 import torch
 from src.decoder.decoder import Decoder
@@ -6,7 +5,7 @@ from src.decoder.decoder import Decoder
 
 class GreedyDecoder(Decoder):
     def __init__(self, vocab):
-        super().__init__(self, vocab)
+        super(GreedyDecoder, self).__init__(vocab)
 
     def convert_to_string(self, tokens, seq_len=None):
         if not seq_len:

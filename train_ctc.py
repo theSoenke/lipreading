@@ -69,6 +69,7 @@ if __name__ == "__main__":
         logger.log_metrics(logs)
         print(f"Initial validation: wer: {logs['val_wer']:.4f}, cer: {logs['val_cer']:.4f}")
 
-    trainer.validate(model)
+    logs = trainer.validate(model)
+    print(f"Initial validation: wer: {logs['val_wer']:.4f}, cer: {logs['val_cer']:.4f}")
     trainer.fit(model)
     logger.save_file(checkpoint_callback.last_checkpoint_path)
