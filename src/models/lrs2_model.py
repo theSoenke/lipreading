@@ -11,7 +11,7 @@ import wandb
 
 from src.data.ctc_utils import ctc_collate
 from src.data.lrs2 import LRS2Dataset
-from src.decoder.greedy import Decoder
+from src.decoder.greedy import GreedyDecoder
 from src.models.resnet import ResNetModel
 
 
@@ -23,7 +23,7 @@ class LRS2Model(Module):
         self.augmentations = augmentations
 
         characters = self.train_dataloader.dataset.characters
-        self.decoder = Decoder(self.train_dataloader.dataset.characters)
+        self.decoder = GreedyDecoder(self.train_dataloader.dataset.characters)
         self.frontend = nn.Sequential(
             nn.Conv3d(self.in_channels, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
             nn.BatchNorm3d(64),
@@ -109,7 +109,7 @@ class LRS2Model(Module):
             'val_loss': avg_loss,
             'val_cer': cer,
             'val_wer': wer,
-            'best_val_acc': self.best_val_wer
+            'best_val_wer': self.best_val_wer
         }
 
         self.epoch += 1

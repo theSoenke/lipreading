@@ -1,11 +1,12 @@
 import editdistance
 import numpy as np
 import torch
+from src.decoder.decoder import Decoder
 
 
-class Decoder:
+class GreedyDecoder(Decoder):
     def __init__(self, vocab):
-        self.vocab_list = [char for char in vocab]
+        super().__init__(self, vocab)
 
     def convert_to_string(self, tokens, seq_len=None):
         if not seq_len:
@@ -13,15 +14,13 @@ class Decoder:
         out = []
         for i in range(seq_len):
             if len(out) == 0:
-                # if tokens[i] != 0:
                 out.append(tokens[i])
             else:
-                # if tokens[i] != 0 and tokens[i] != tokens[i - 1]:
                 if tokens[i] != tokens[i - 1]:
                     out.append(tokens[i])
         return ''.join(self.vocab_list[i] for i in out)
 
-    def decode_greedy(self, logits, seq_lens):
+    def decode(self, logits, seq_lens):
         decoded = []
         tlogits = logits.transpose(0, 1)
         _, tokens = torch.max(tlogits, 2)
@@ -30,63 +29,3 @@ class Decoder:
             decoded.append(output_str)
         return decoded
 
-    def get_mean(self, decoded, gt, individual_length, func):
-        total_norm = 0.0
-        length = len(decoded)
-        for i in range(0, length):
-            val = float(func(decoded[i], gt[i]))
-            total_norm += val / individual_length
-        return total_norm / length
-
-    def wer(self, r, h):
-        d = np.zeros((len(r)+1)*(len(h)+1), dtype=np.uint8)
-        d = d.reshape((len(r)+1, len(h)+1))
-        for i in range(len(r)+1):
-            for j in range(len(h)+1):
-                if i == 0:
-                    d[0][j] = j
-                elif j == 0:
-                    d[i][0] = i
-
-        for i in range(1, len(r)+1):
-            for j in range(1, len(h)+1):
-                if r[i-1] == h[j-1]:
-                    d[i][j] = d[i-1][j-1]
-                else:
-                    substitution = d[i-1][j-1] + 1
-                    insertion = d[i][j-1] + 1
-                    deletion = d[i-1][j] + 1
-                    d[i][j] = min(substitution, insertion, deletion)
-
-        return d[len(r)][len(h)]
-
-    def wer_sentence(self, r, h):
-        return self.wer(r.split(), h.split())
-
-    def cer_batch(self, decoded, gt):
-        assert len(decoded) == len(gt), f'batch size mismatch: {len(decoded)}!={len(gt)}'
-        mean_indiv_len = np.mean([len(s) for s in gt])
-
-        return self.get_mean(decoded, gt, mean_indiv_len, editdistance.eval)
-
-    def wer_batch(self, decoded, gt):
-        assert len(decoded) == len(gt), f'batch size mismatch: {len(decoded)}!={len(gt)}'
-        mean_indiv_len = np.mean([len(s.split()) for s in gt])
-
-        return self.get_mean(decoded, gt, mean_indiv_len, self.wer_sentence)
-
-    def predict(self, batch_size, logits, y, lengths, y_lengths, n_show=5):
-        decoded = self.decode_greedy(logits, lengths)
-
-        cursor = 0
-        gt = []
-        n = min(n_show, logits.size(1))
-        samples = []
-        for b in range(batch_size):
-            y_str = ''.join([self.vocab_list[ch] for ch in y[cursor: cursor + y_lengths[b]]])
-            gt.append(y_str)
-            cursor += y_lengths[b]
-            if b < n:
-                samples.append([y_str, decoded[b]])
-
-        return decoded, gt, samples
