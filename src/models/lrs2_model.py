@@ -77,6 +77,12 @@ class LRS2Model(Module):
         loss = loss_all.mean()
 
         predicted, gt, samples = self.decoder.predict(frames.size(0), output, y, lengths, y_lengths, n_show=3, mode='greedy')
+        # cursor = 0
+        # b = 0
+        # vocab_list = self.train_dataloader.dataset.characters
+        # strings = self.decoder.decode(output, y_lengths)
+        # import pdb; pdb.set_trace()
+        # y_str = ''.join([vocab_list[ch] for ch in y[cursor: cursor + y_lengths[b]]])
 
         return {
             'val_loss': loss,
@@ -93,7 +99,9 @@ class LRS2Model(Module):
         wer = self.decoder.wer_batch(predictions, ground_truth)
         cer = self.decoder.cer_batch(predictions, ground_truth)
 
-        self.logger.log_metrics({"samples": wandb.Table(data=samples, columns=["Truth", "Predicted"])})
+        print(samples)
+
+        # self.logger.log_metrics({"samples": wandb.Table(data=samples, columns=["Sentence", "Predicted"])})
 
         if self.best_val_wer < wer:
             self.best_val_wer = wer

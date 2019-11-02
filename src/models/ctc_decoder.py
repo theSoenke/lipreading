@@ -6,21 +6,9 @@ from ctcdecode import CTCBeamDecoder
 
 class Decoder:
     def __init__(self, labels, lm_path=None, alpha=1, beta=1.5, cutoff_top_n=40, cutoff_prob=0.99, beam_width=200, num_processes=24, blank_id=0):
-        self.vocab_list = ['_'] + labels  # NOTE: blank symbol
-        self._decoder = CTCBeamDecoder(['_@'] + labels[1:], lm_path, alpha, beta, cutoff_top_n, cutoff_prob, beam_width, num_processes, blank_id)
-
-    def convert_to_string(self, tokens, seq_len=None):
-        if not seq_len:
-            seq_len = tokens.size(0)
-        out = []
-        for i in range(seq_len):
-            if len(out) == 0:
-                if tokens[i] != 0:
-                    out.append(tokens[i])
-            else:
-                if tokens[i] != 0 and tokens[i] != tokens[i - 1]:
-                    out.append(tokens[i])
-        return ''.join(self.vocab_list[i] for i in out)
+        self.vocab_list = labels
+        self._decoder = CTCBeamDecoder(labels, lm_path, alpha, beta, cutoff_top_n, cutoff_prob, beam_width, num_processes, blank_id)
+        self.int2char = dict([(i, c) for (i, c) in enumerate(labels)])
 
     def decode_beam(self, logits, seq_lens):
         decoded = []
@@ -96,10 +84,43 @@ class Decoder:
         n = min(n_show, logits.size(1))
         samples = []
         for b in range(batch_size):
-            y_str = ''.join([self.vocab_list[ch - 1] for ch in y[cursor: cursor + y_lengths[b]]])
+            y_str = ''.join([self.vocab_list[ch] for ch in y[cursor: cursor + y_lengths[b]]])
             gt.append(y_str)
             cursor += y_lengths[b]
             if b < n:
                 samples.append([y_str, decoded[b]])
 
         return decoded, gt, samples
+
+    def convert_to_string(self, tokens, seq_len=None):
+        if not seq_len:
+            seq_len = tokens.size(0)
+        out = []
+        for i in range(seq_len):
+            if len(out) == 0:
+                if tokens[i] != 0:
+                    out.append(tokens[i])
+            else:
+                if tokens[i] != 0 and tokens[i] != tokens[i - 1]:
+                    out.append(tokens[i])
+        return ''.join(self.vocab_list[i] for i in out)
+
+    def convert_to_strings(self, out, seq_len):
+        results = []
+        for b, batch in enumerate(out):
+            utterances = []
+            for p, utt in enumerate(batch):
+                size = seq_len[b][p]
+                if size > 0:
+                    transcript = ''.join(map(lambda x: self.int2char[x.item()], utt[0:size]))
+                else:
+                    transcript = ''
+                utterances.append(transcript)
+            results.append(utterances)
+        return results
+
+    def decode(self, y, y_lengths):
+        y = y.transpose(1, 0)  # N T P -> probability of character at time t
+        out, scores, offsets, seq_lens = self._decoder.decode(y.cpu(), y_lengths)
+        strings = self.convert_to_strings(out, seq_lens)
+        return strings
