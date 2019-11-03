@@ -1,10 +1,10 @@
 import argparse
 
-import psutil
 import torch
+
+import psutil
 from pytorch_trainer import (EarlyStopping, ModelCheckpoint, Trainer,
                              WandbLogger)
-
 from src.checkpoint import load_checkpoint
 from src.models.lrs2_model import LRS2Model
 
@@ -73,16 +73,26 @@ if __name__ == "__main__":
 
     if args.pretrain:
         print("Pretraining model")
-        model.max_timesteps = 48
-        model.pretrain_words = 1
-        trainer.num_max_epochs = 5
-        trainer.fit(model)
 
-        model.max_timesteps = 98
-        model.pretrain_words = 2
-        trainer.num_max_epochs = 5
-        trainer.fit(model)
-    else:
-        trainer.fit(model)
+        # curriculum with max_sequence_length, number_of_words, epochs
+        curriculum = [
+            [64,  2, 5],
+            [96,  3, 3],
+            [128, 4, 3],
+        ]
+
+        for part in curriculum:
+            model.max_timesteps = part[0]
+            model.pretrain_words = part[1]
+            trainer.num_max_epochs = part[2]
+            trainer.fit(model)
+
+        print("Pretraining finished")
+
+    model.pretrain = False
+    model.num_max_timesteps = 155
+    trainer.num_max_epochs = args.epochs
+    trainer.validate(model)
+    trainer.fit(model)
 
     logger.save_file(checkpoint_callback.last_checkpoint_path)
