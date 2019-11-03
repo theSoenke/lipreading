@@ -78,7 +78,7 @@ class LipNet(Module):
 
         return x
 
-    def training_step(self, batch, batch_nb):
+    def training_step(self, batch, batch_num):
         x, y, lengths, y_lengths, idx = batch
         logits = self.forward(x)
         loss_all = self.loss(F.log_softmax(logits, dim=-1), y, lengths, y_lengths)
@@ -91,7 +91,7 @@ class LipNet(Module):
         logs = {'train_loss': loss}
         return {'log': logs}
 
-    def validation_step(self, batch, batch_nb):
+    def validation_step(self, batch, batch_num):
         x, y, lengths, y_lengths, idx = batch
         logits = self.forward(x)
         loss_all = self.loss(F.log_softmax(logits, dim=-1), y, lengths, y_lengths)

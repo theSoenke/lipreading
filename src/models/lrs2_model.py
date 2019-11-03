@@ -12,7 +12,6 @@ import wandb
 from pytorch_trainer import Module, data_loader
 from src.data.ctc_utils import ctc_collate
 from src.data.lrs2 import LRS2Dataset
-from src.decoder.beam import BeamDecoder
 from src.decoder.greedy import GreedyDecoder
 from src.models.resnet import ResNetModel
 
@@ -59,7 +58,7 @@ class LRS2Model(Module):
         x = self.softmax(x)
         return x
 
-    def training_step(self, batch):
+    def training_step(self, batch, batch_num):
         frames, y, lengths, y_lengths, idx = batch
         output = self.forward(frames, lengths)
         output = output.transpose(0, 1)
@@ -70,10 +69,14 @@ class LRS2Model(Module):
         dlogits = torch.autograd.grad(loss_all, output, grad_outputs=weight)[0]
         output.backward(dlogits)
 
+        if batch_num % 250 == 0:
+            _, _, samples = self.decoder.predict(frames.size(0), output, y, lengths, y_lengths, n_show=3)
+            print(samples)
+
         logs = {'train_loss': loss}
         return {'log': logs}
 
-    def validation_step(self, batch):
+    def validation_step(self, batch, batch_num):
         if self.pretrain:
             return {}
 

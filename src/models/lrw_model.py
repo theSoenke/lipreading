@@ -54,7 +54,7 @@ class LRWModel(Module):
         x = self.softmax(x)
         return x
 
-    def training_step(self, batch):
+    def training_step(self, batch, batch_num):
         frames = batch['frames']
         labels = batch['label']
         output = self.forward(frames)
@@ -63,7 +63,7 @@ class LRWModel(Module):
         logs = {'train_loss': loss, 'train_acc': acc}
         return {'loss': loss, 'acc': acc, 'log': logs}
 
-    def validation_step(self, batch):
+    def validation_step(self, batch_num):
         frames = batch['frames']
         labels = batch['label']
         words = batch['word']

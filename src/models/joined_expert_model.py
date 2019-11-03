@@ -52,7 +52,7 @@ class JoinedExpertModel(Module):
         output = self.joined_backend(output)
         return output, attn
 
-    def training_step(self, batch):
+    def training_step(self, batch, batch_num):
         frames = batch['frames']
         labels = batch['label']
         yaws = batch['yaw']
@@ -63,7 +63,7 @@ class JoinedExpertModel(Module):
         logs = {'train_loss': loss, 'train_acc': acc}
         return {'loss': loss, 'acc': acc, 'log': logs}
 
-    def validation_step(self, batch):
+    def validation_step(self, batch, batch_num):
         frames = batch['frames']
         labels = batch['label']
         yaws = batch['yaw']
@@ -119,7 +119,7 @@ class JoinedExpertModel(Module):
         plt.clf()
         self.epoch += 1
 
-    def test_step(self, batch):
+    def test_step(self, batch, batch_num):
         frames = batch['frames']
         labels = batch['label']
         yaws = batch['yaw']
