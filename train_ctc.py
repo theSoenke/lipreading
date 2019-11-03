@@ -20,6 +20,7 @@ if __name__ == "__main__":
     parser.add_argument("--workers", type=int, default=None)
     parser.add_argument("--resnet", type=int, default=18)
     parser.add_argument("--pretrained", default=True, type=lambda x: (str(x).lower() == 'true'))
+    parser.add_argument("--pretrain", default=False, action='store_true')
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
@@ -44,7 +45,7 @@ if __name__ == "__main__":
         hparams=args,
         in_channels=1,
         augmentations=False,
-        pretrain=True,
+        pretrain=args.pretrain,
     )
     logger = WandbLogger(
         project='lrs2',
@@ -70,5 +71,18 @@ if __name__ == "__main__":
         logger.log_metrics(logs)
         print(f"Initial validation: wer: {logs['val_wer']:.4f}, cer: {logs['val_cer']:.4f}")
 
-    trainer.fit(model)
+    if args.pretrain:
+        print("Pretraining model")
+        model.max_timesteps = 48
+        model.pretrain_words = 1
+        trainer.num_max_epochs = 5
+        trainer.fit(model)
+
+        model.max_timesteps = 98
+        model.pretrain_words = 2
+        trainer.num_max_epochs = 5
+        trainer.fit(model)
+    else:
+        trainer.fit(model)
+
     logger.save_file(checkpoint_callback.last_checkpoint_path)

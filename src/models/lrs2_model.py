@@ -49,6 +49,7 @@ class LRS2Model(Module):
         self.epoch = 0
 
     def forward(self, x, lengths):
+        x = x.narrow(2, 0, max(lengths))
         x = self.frontend(x)
         x = self.resnet(x)
         x = pack_padded_sequence(x, lengths, enforce_sorted=False, batch_first=True)
@@ -129,11 +130,15 @@ class LRS2Model(Module):
 
     @data_loader
     def train_dataloader(self):
+        if self.pretrain:
+            mode = "pretrain"
+        else:
+            mode = "train"
         train_data = LRS2Dataset(
             path=self.hparams.data,
             in_channels=self.in_channels,
             augmentations=self.augmentations,
-            pretrain=self.pretrain,
+            mode=mode,
         )
         train_loader = DataLoader(
             train_data,

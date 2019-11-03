@@ -15,15 +15,14 @@ from torchvision import transforms
 
 
 class LRS2Dataset(Dataset):
-    def __init__(self, path, in_channels=1, mode="train", augmentations=False, estimate_pose=False, pretrain=False):
-        self.max_pretrain_conf = 2
-        if pretrain:
-            self.max_timesteps = 50
-        else:
-            self.max_timesteps = 155
+    def __init__(self, path, in_channels=1, mode="train", augmentations=False, estimate_pose=False):
+        self.max_timesteps = 155
+        self.pretrain = mode == "pretrain"
+        if self.pretrain:
+            self.max_timesteps = 48
+            self.pretrain_words = 1
 
         self.in_channels = in_channels
-        self.pretrain = pretrain
         self.estimate_pose = estimate_pose
 
         self.augmentation = augmentations if mode == 'train' else False
@@ -107,7 +106,7 @@ class LRS2Dataset(Dataset):
             sample_start = 0
             sample_end = 0
             content = ""
-            for word in words[:2]:
+            for word in words[:self.pretrain_words]:
                 word, start, end = word
                 if sample_start == 0:
                     sample_start = start
@@ -116,20 +115,19 @@ class LRS2Dataset(Dataset):
                 content = content + " " + word
             start_frame = int(sample_start * fps)
             stop_frame = math.ceil(sample_end * fps)
+
+            if stop_frame - start_frame > self.max_timesteps:
+                print(f"Cutting frames off. Requires {stop_frame - start_frame} frames: {self.file_paths[idx]}")
+                stop_frame = start_frame + self.max_timesteps
             video = video[start_frame:stop_frame]
         else:
             content = content.splitlines()[0][7:]
 
+        assert len(video) <= self.max_timesteps, f"Video too large with {len(video)} frames: {self.file_paths[idx]}"
         content = content.lower()
         frames = self.build_tensor(video)
-        encoded = []
-        for i, char in enumerate(content):
-            encoded.append(self.char2int[char])
-
+        encoded = [self.char2int[char] for char in content]
         input_lengths = video.size(0)
-        if self.estimate_pose:
-            return frames, encoded, input_lengths, idx, file
-
         return frames, encoded, input_lengths, idx
 
 
@@ -144,12 +142,12 @@ def extract_angles(path, output_path, num_workers):
         lines = []
         with tqdm(total=len(dataset)) as progress:
             for batch in data_loader:
-                frames, _, input_lengths,  _, files = batch
+                frames, _, input_lengths, ids = batch
                 for i, video in enumerate(frames):
                     video = video.transpose(1, 0)[:input_lengths[i]]  # T C H W
                     yaws = head_pose.predict(video)['yaw']
                     yaws = ";".join([f"{yaw:.2f}" for yaw in yaws.cpu().numpy()])
-                    line = f"{files[i]};{yaws}"
+                    line = f"{dataset.file_names[ids[i]]};{yaws}"
                     lines.append(line)
                     progress.update(1)
         file = open(f"{output_path}/{mode}.txt", "w")
