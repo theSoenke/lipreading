@@ -145,19 +145,16 @@ class JoinedExpertModel(Module):
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
 
-    @data_loader
     def train_dataloader(self):
         train_data = LRWDataset(path=self.hparams.data, num_words=self.hparams.words, seed=self.hparams.seed)
         train_loader = DataLoader(train_data, shuffle=True, batch_size=self.hparams.batch_size, num_workers=self.hparams.workers, pin_memory=True)
         return train_loader
 
-    @data_loader
     def val_dataloader(self):
         val_data = LRWDataset(path=self.hparams.data, num_words=self.hparams.words, mode='val', seed=self.hparams.seed)
         val_loader = DataLoader(val_data, shuffle=False, batch_size=self.hparams.batch_size * 2, num_workers=self.hparams.workers)
         return val_loader
 
-    @data_loader
     def test_dataloader(self):
         test_data = LRWDataset(path=self.hparams.data, num_words=self.hparams.words, mode='test', seed=self.hparams.seed)
         test_loader = DataLoader(test_data, shuffle=False, batch_size=self.hparams.batch_size * 2, num_workers=self.hparams.workers)

@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     checkpoint_callback = ModelCheckpoint(
         directory=args.checkpoint_dir,
-        save_best_only=True,
+        save_best_only=False,
         monitor='val_cer',
         mode='min',
         prefix=f"lrs2"
@@ -76,8 +76,8 @@ if __name__ == "__main__":
 
         # curriculum with max_sequence_length, number_of_words, epochs
         curriculum = [
-            [64,  2, 5],
-            [96,  3, 3],
+            [64, 2, 5],
+            [96, 3, 3],
             [128, 4, 3],
         ]
 
@@ -89,9 +89,11 @@ if __name__ == "__main__":
 
         print("Pretraining finished")
 
+    checkpoint_callback.save_best_only = True
     model.pretrain = False
-    model.num_max_timesteps = 155
+    model.max_timesteps = 155
     trainer.num_max_epochs = args.epochs
+    trainer.validate(model)
     trainer.validate(model)
     trainer.fit(model)
 

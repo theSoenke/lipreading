@@ -15,15 +15,13 @@ from torchvision import transforms
 
 
 class LRS2Dataset(Dataset):
-    def __init__(self, path, in_channels=1, mode="train", augmentations=False, estimate_pose=False):
-        self.max_timesteps = 155
+    def __init__(self, path, in_channels=1, mode="train", augmentations=False, estimate_pose=False, max_timesteps=155, pretrain_words=0):
+        self.max_timesteps = max_timesteps
         self.pretrain = mode == "pretrain"
-        if self.pretrain:
-            self.max_timesteps = 48
-            self.pretrain_words = 1
-
         self.in_channels = in_channels
         self.estimate_pose = estimate_pose
+        self.max_timesteps = max_timesteps
+        self.pretrain_words = pretrain_words
 
         self.augmentation = augmentations if mode == 'train' or mode == "pretrain" else False
         self.file_paths, self.file_names = self.build_file_list(path, mode)

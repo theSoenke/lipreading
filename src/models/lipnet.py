@@ -117,7 +117,6 @@ class LipNet(Module):
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
 
-    @data_loader
     def train_dataloader(self):
         train_data = GRIDDataset(path=self.hparams.data, augmentation=True)
         train_loader = DataLoader(
@@ -130,7 +129,6 @@ class LipNet(Module):
         )
         return train_loader
 
-    @data_loader
     def val_dataloader(self):
         val_data = GRIDDataset(path=self.hparams.data, mode='val')
         val_loader = DataLoader(
@@ -142,7 +140,6 @@ class LipNet(Module):
         )
         return val_loader
 
-    @data_loader
     def test_dataloader(self):
         val_data = GRIDDataset(path=self.hparams.data, mode='test')
         val_loader = DataLoader(

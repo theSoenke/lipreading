@@ -2,14 +2,14 @@ import os
 
 import numpy as np
 import torch
+import torchvision.transforms as transforms
+from pytorch_trainer import Module
 from torch import nn, optim
 from torch.nn import functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torch.utils.data import DataLoader
 
-import torchvision.transforms as transforms
 import wandb
-from pytorch_trainer import Module, data_loader
 from src.data.ctc_utils import ctc_collate
 from src.data.lrs2 import LRS2Dataset
 from src.decoder.greedy import GreedyDecoder
@@ -23,6 +23,8 @@ class LRS2Model(Module):
         self.in_channels = in_channels
         self.augmentations = augmentations
         self.pretrain = pretrain
+        self.max_timesteps = 155
+        self.pretrain_words = 0
 
         characters = self.train_dataloader.dataset.characters
         self.decoder = GreedyDecoder(self.train_dataloader.dataset.characters)
@@ -48,7 +50,7 @@ class LRS2Model(Module):
         self.epoch = 0
 
     def forward(self, x, lengths):
-        x = x.narrow(2, 0, max(lengths))
+        # x = x.narrow(2, 0, max(lengths))
         x = self.frontend(x)
         x = self.resnet(x)
         x = pack_padded_sequence(x, lengths, enforce_sorted=False, batch_first=True)
@@ -131,7 +133,6 @@ class LRS2Model(Module):
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
 
-    @data_loader
     def train_dataloader(self):
         if self.pretrain:
             mode = "pretrain"
@@ -142,6 +143,8 @@ class LRS2Model(Module):
             in_channels=self.in_channels,
             augmentations=self.augmentations,
             mode=mode,
+            max_timesteps=self.max_timesteps,
+            pretrain_words=self.pretrain_words,
         )
         train_loader = DataLoader(
             train_data,
@@ -152,7 +155,6 @@ class LRS2Model(Module):
         )
         return train_loader
 
-    @data_loader
     def val_dataloader(self):
         val_data = LRS2Dataset(
             path=self.hparams.data,
@@ -166,7 +168,6 @@ class LRS2Model(Module):
         )
         return val_loader
 
-    @data_loader
     def test_dataloader(self):
         test_data = LRS2Dataset(
             path=self.hparams.data,
