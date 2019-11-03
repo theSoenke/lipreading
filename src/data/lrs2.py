@@ -117,7 +117,7 @@ class LRS2Dataset(Dataset):
             print(f"Cutting frames off. Requires {stop_frame - start_frame} frames: {file_name}")
             stop_frame = start_frame + self.max_timesteps
 
-        return content, start_frame, stop_frame
+        return content.strip(), start_frame, stop_frame
 
     def __getitem__(self, idx):
         file = self.file_names[idx]
