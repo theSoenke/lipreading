@@ -25,7 +25,7 @@ class LRS2Dataset(Dataset):
         self.in_channels = in_channels
         self.estimate_pose = estimate_pose
 
-        self.augmentation = augmentations if mode == 'train' else False
+        self.augmentation = augmentations if mode == 'train' or mode == "pretrain" else False
         self.file_paths, self.file_names = self.build_file_list(path, mode)
 
         numbers = "".join([str(i) for i in range(10)])
@@ -88,42 +88,51 @@ class LRS2Dataset(Dataset):
     def __len__(self):
         return len(self.file_paths)
 
+    def get_pretrain_words(self, fps, content, file_name):
+        lines = content.splitlines()[4:]
+        words = []
+        for line in lines:
+            word, start, stop, _ = line.split(" ")
+            start, stop = float(start), float(stop)
+            words.append([word, start, stop])
+
+        num_words = min(random.randint(1, self.pretrain_words), len(words))
+        word_start = random.randint(0, len(words) - num_words)
+        word_end = word_start + num_words
+
+        sample_start = 0
+        sample_end = 0
+        content = ""
+        for word in words[word_start:word_end]:
+            word, start, end = word
+            if sample_start == 0:
+                sample_start = start
+            if end > sample_end:
+                sample_end = end
+            content = content + " " + word
+        start_frame = int(sample_start * fps)
+        stop_frame = math.ceil(sample_end * fps)
+
+        if stop_frame - start_frame > self.max_timesteps:
+            print(f"Cutting frames off. Requires {stop_frame - start_frame} frames: {file_name}")
+            stop_frame = start_frame + self.max_timesteps
+
+        return content, start_frame, stop_frame
+
     def __getitem__(self, idx):
         file = self.file_names[idx]
         video, _, info = torchvision.io.read_video(self.file_paths[idx] + ".mp4")  # T, H, W, C
-        content = open(self.file_paths[idx] + ".txt", "r").read()
+        file_name = self.file_paths[idx]
+        content = open(file_name + ".txt", "r").read()
 
         if self.pretrain:
             fps = info['video_fps']
-            lines = content.splitlines()[4:]
-            num_words = len(lines)
-            words = []
-            for line in lines:
-                word, start, stop, _ = line.split(" ")
-                start, stop = float(start), float(stop)
-                words.append([word, start, stop])
-
-            sample_start = 0
-            sample_end = 0
-            content = ""
-            for word in words[:self.pretrain_words]:
-                word, start, end = word
-                if sample_start == 0:
-                    sample_start = start
-                if end > sample_end:
-                    sample_end = end
-                content = content + " " + word
-            start_frame = int(sample_start * fps)
-            stop_frame = math.ceil(sample_end * fps)
-
-            if stop_frame - start_frame > self.max_timesteps:
-                print(f"Cutting frames off. Requires {stop_frame - start_frame} frames: {self.file_paths[idx]}")
-                stop_frame = start_frame + self.max_timesteps
+            content, start_frame, stop_frame = self.get_pretrain_words(fps, content, file_name)
             video = video[start_frame:stop_frame]
         else:
             content = content.splitlines()[0][7:]
 
-        assert len(video) <= self.max_timesteps, f"Video too large with {len(video)} frames: {self.file_paths[idx]}"
+        assert len(video) <= self.max_timesteps, f"Video too large with {len(video)} frames: {file_name}"
         content = content.lower()
         frames = self.build_tensor(video)
         encoded = [self.char2int[char] for char in content]

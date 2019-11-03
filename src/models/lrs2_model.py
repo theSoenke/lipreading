@@ -26,7 +26,7 @@ class LRS2Model(Module):
         self.pretrain = pretrain
 
         characters = self.train_dataloader.dataset.characters
-        self.decoder = BeamDecoder(self.train_dataloader.dataset.characters)
+        self.decoder = GreedyDecoder(self.train_dataloader.dataset.characters)
         self.frontend = nn.Sequential(
             nn.Conv3d(self.in_channels, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
             nn.BatchNorm3d(64),
@@ -62,27 +62,26 @@ class LRS2Model(Module):
     def training_step(self, batch):
         frames, y, lengths, y_lengths, idx = batch
         output = self.forward(frames, lengths)
-        logits = output.transpose(0, 1)
-        loss_all = self.loss(F.log_softmax(logits, dim=-1), y, lengths, y_lengths)
+        output = output.transpose(0, 1)
+        loss_all = self.loss(output, y, lengths, y_lengths)
         loss = loss_all.mean()
 
         weight = torch.ones_like(loss_all)
-        dlogits = torch.autograd.grad(loss_all, logits, grad_outputs=weight)[0]
-        logits.backward(dlogits)
+        dlogits = torch.autograd.grad(loss_all, output, grad_outputs=weight)[0]
+        output.backward(dlogits)
 
         logs = {'train_loss': loss}
         return {'log': logs}
 
     def validation_step(self, batch):
         if self.pretrain:
-            pass
+            return {}
 
         frames, y, lengths, y_lengths, idx = batch
 
         output = self.forward(frames, lengths)
         output = output.transpose(0, 1)
-
-        loss_all = self.loss(F.log_softmax(output, dim=-1), y, lengths, y_lengths)
+        loss_all = self.loss(output, y, lengths, y_lengths)
         loss = loss_all.mean()
 
         predicted, gt, samples = self.decoder.predict(frames.size(0), output, y, lengths, y_lengths, n_show=3)
@@ -95,7 +94,8 @@ class LRS2Model(Module):
 
     def validation_end(self, outputs):
         if self.pretrain:
-            pass
+            print("Skip validation for pretraining")
+            return {}
 
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         predictions = np.concatenate([x['predictions'] for x in outputs])
