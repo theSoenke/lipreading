@@ -26,8 +26,8 @@ class LRS2Model(Module):
         self.max_timesteps = 155
         self.pretrain_words = 0
 
-        characters = self.train_dataloader.dataset.characters
-        self.decoder = GreedyDecoder(self.train_dataloader.dataset.characters)
+        characters = self.train_dataloader().dataset.characters
+        self.decoder = GreedyDecoder(characters)
         self.frontend = nn.Sequential(
             nn.Conv3d(self.in_channels, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
             nn.BatchNorm3d(64),

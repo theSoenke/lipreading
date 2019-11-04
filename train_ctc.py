@@ -32,12 +32,13 @@ if __name__ == "__main__":
         prefix=f"lrs2"
     )
 
-    early_stop_callback = EarlyStopping(
-        monitor='val_cer',
-        min_delta=0.00,
-        patience=10,
-        mode='min'
-    )
+    # early_stop_callback = EarlyStopping(
+    #     monitor='val_cer',
+    #     min_delta=0.00,
+    #     patience=10,
+    #     mode='min'
+    # )
+    early_stop_callback = None
 
     args.workers = psutil.cpu_count(logical=False) if args.workers == None else args.workers
     args.pretrained = False if args.checkpoint != None else args.pretrained
@@ -65,20 +66,14 @@ if __name__ == "__main__":
     logger.log('parameters', trainable_params)
     logger.log_hyperparams(args)
 
-    if args.checkpoint != None:
-        load_checkpoint(args.checkpoint, model, optimizer=None)
-        logs = trainer.validate(model)
-        logger.log_metrics(logs)
-        print(f"Initial validation: wer: {logs['val_wer']:.4f}, cer: {logs['val_cer']:.4f}")
-
     if args.pretrain:
         print("Pretraining model")
 
         # curriculum with max_sequence_length, number_of_words, epochs
         curriculum = [
-            [64, 2, 5],
-            [96, 3, 3],
-            [128, 4, 3],
+            [64, 2, 10],
+            [96, 3, 5],
+            [128, 4, 5],
         ]
 
         for part in curriculum:
@@ -87,14 +82,19 @@ if __name__ == "__main__":
             trainer.num_max_epochs = part[2]
             trainer.fit(model)
 
+        trainer.validate(model)
         print("Pretraining finished")
 
-    checkpoint_callback.save_best_only = True
+    if args.checkpoint != None:
+        load_checkpoint(args.checkpoint, model, optimizer=None)
+        logs = trainer.validate(model)
+        logger.log_metrics(logs)
+        print(f"Initial validation: wer: {logs['val_wer']:.4f}, cer: {logs['val_cer']:.4f}")
+
     model.pretrain = False
+    checkpoint_callback.save_best_only = True
     model.max_timesteps = 155
     trainer.num_max_epochs = args.epochs
-    trainer.validate(model)
-    trainer.validate(model)
     trainer.fit(model)
 
     logger.save_file(checkpoint_callback.last_checkpoint_path)
