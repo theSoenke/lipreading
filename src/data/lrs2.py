@@ -12,9 +12,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from tqdm import tqdm
 
-from src.data.preprocess.face import FacePredictor
 from src.data.preprocess.facenet import FaceNet
-from src.data.preprocess.video import load_video
 
 
 class LRS2Dataset(Dataset):
@@ -168,8 +166,7 @@ def extract_angles(path, output_path, num_workers):
 class LRS2DatasetMouth(Dataset):
     def __init__(self, path, mode="train"):
         self.file_paths, self.file_names = self.build_file_list(path, mode)
-        # self.facenet = FaceNet()
-        self.predictor = FacePredictor()
+        self.facenet = FaceNet()
 
     def build_file_list(self, directory, mode):
         file_list = []
@@ -194,6 +191,13 @@ class LRS2DatasetMouth(Dataset):
     def __len__(self):
         return len(self.file_names)
 
+    def extract_bb(self, landmarks):
+        left = int(landmarks[3])
+        upper = int(landmarks[8])
+        right = int(landmarks[4])
+        lower = int(landmarks[9])
+        return left, upper, right, lower
+
     def __getitem__(self, idx):
         file_name = self.file_names[idx]
         video_path = self.file_paths[idx] + ".mp4"
@@ -203,17 +207,56 @@ class LRS2DatasetMouth(Dataset):
         skip = False
         boxes = []
         for i, frame in enumerate(frames):
-            bb = self.facenet.detect(frame)
-            if bb is None:
-                print(f"No face in frame {i} detected: {file_name}")
-                skip = True
-                break
-            if len(bb) > 1:
-                box = bb[0]  # first is largest face
-            else:
-                box = bb[0]
+            _, landmarks = self.facenet.detect(frame)
 
-            box = [str(f"{pos:.2f}") for pos in box]
+            if len(landmarks) == 0:
+                skip = True
+                import pdb
+                pdb.set_trace()
+                print(f"No face found: {video_path}")
+                break
+
+            landmarks = landmarks[0]
+            if landmarks.shape[1] >= 2:
+                # choose largest face
+                selected = 0
+                max_size = 0
+                for i in range(landmarks.shape[1]):
+                    left, upper, right, lower = self.extract_bb(landmarks[:, i])
+                    size = (right - left) * (lower - upper)
+                    if size > max_size:
+                        max_size = size
+                        selected = i
+                landmarks = landmarks[:, selected]
+
+            # landmarks = self.head_pose.predict_landmarks(frame)
+            # xmouthpoints = landmarks[0][48:67][:, 0]
+            # ymouthpoints = landmarks[0][48:67][:, 1]
+            # right = max(xmouthpoints)
+            # left = min(xmouthpoints)
+            # upper = max(ymouthpoints)
+            # lower = min(ymouthpoints)
+
+            pad = 10
+            width = 50
+            height = 20
+
+            try:
+                left, upper, right, lower = self.extract_bb(landmarks)
+            except:
+                import pdb
+                pdb.set_trace()
+            vertical_center = (left + right) / 2
+            horizontal_center = (upper + lower) / 2
+
+            box = [
+                (horizontal_center - (width // 2)) - pad,
+                (vertical_center - (height // 2)) - pad,
+                (horizontal_center + (width // 2)) + pad,
+                (vertical_center + (height // 2)) + pad,
+            ]
+
+            box = [str(f"{pos}") for pos in box]
             boxes.append(";".join(box))
 
         return {'bb': boxes, 'file': file_name, 'skip': skip}
@@ -228,11 +271,12 @@ def mouth_bounding_boxes(path, output_path):
         with tqdm(total=len(dataset)) as progress:
             for sample in dataset:
                 skip = sample['skip']
+                box = sample['bb']
+                file = sample['file']
+
                 if not skip:
-                    boxes = sample['bb']
-                    file = sample['file']
-                    boxes = "|".join(boxes)
-                    line = f"{file};{boxes}"
+                    box = "|".join(box)
+                    line = f"{file};{box}"
                     lines.append(line)
                 progress.update(1)
 

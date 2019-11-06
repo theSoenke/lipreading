@@ -20,8 +20,8 @@ class FaceNet():
         else:
             data = transforms.functional.to_pil_image(image)
 
-        boxes, _ = self.mtcnn.detect(data)
-        return boxes
+        boxes, _, landmarks = self.mtcnn.detect(data)
+        return boxes, landmarks
 
 
 if __name__ == "__main__":
