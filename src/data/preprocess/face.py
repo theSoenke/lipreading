@@ -25,6 +25,21 @@ class FacePredictor():
         face_rect = self.face_rect(image, path)
         return self.mouth_image_rect(image, face_rect)
 
+    def mouth_bb(self, image, face_rect):
+        pad = 10
+        width = 40
+        height = 20
+
+        shape = self.predictor(image, face_rect)
+        xmouthpoints = [shape.part(x).x for x in range(48, 67)]
+        ymouthpoints = [shape.part(x).y for x in range(48, 67)]
+        maxx = max(xmouthpoints)
+        minx = min(xmouthpoints)
+        maxy = max(ymouthpoints)
+        miny = min(ymouthpoints)
+
+        return [maxx, minx, maxy, miny]
+
     def mouth_image_rect(self, image, face_rect):
         pad = 10
         width = 40

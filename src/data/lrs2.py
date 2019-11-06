@@ -3,15 +3,18 @@ import os
 import random
 from string import ascii_lowercase
 
-import torch
-from torch.utils.data import DataLoader, Dataset
-from tqdm import tqdm
-
 import psutil
+import torch
 import torchvision
 import torchvision.transforms.functional as F
 from PIL import Image
+from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
+from tqdm import tqdm
+
+from src.data.preprocess.face import FacePredictor
+from src.data.preprocess.facenet import FaceNet
+from src.data.preprocess.video import load_video
 
 
 class LRS2Dataset(Dataset):
@@ -120,17 +123,17 @@ class LRS2Dataset(Dataset):
     def __getitem__(self, idx):
         file = self.file_names[idx]
         video, _, info = torchvision.io.read_video(self.file_paths[idx] + ".mp4")  # T, H, W, C
-        file_name = self.file_paths[idx]
-        content = open(file_name + ".txt", "r").read()
+        file_path = self.file_paths[idx]
+        content = open(file_path + ".txt", "r").read()
 
         if self.pretrain:
             fps = info['video_fps']
-            content, start_frame, stop_frame = self.get_pretrain_words(fps, content, file_name)
+            content, start_frame, stop_frame = self.get_pretrain_words(fps, content, file_path)
             video = video[start_frame:stop_frame]
         else:
             content = content.splitlines()[0][7:]
 
-        assert len(video) <= self.max_timesteps, f"Video too large with {len(video)} frames: {file_name}"
+        assert len(video) <= self.max_timesteps, f"Video too large with {len(video)} frames: {file_path}"
         content = content.lower()
         frames = self.build_tensor(video)
         encoded = [self.char2int[char] for char in content]
@@ -158,5 +161,81 @@ def extract_angles(path, output_path, num_workers):
                     lines.append(line)
                     progress.update(1)
         file = open(f"{output_path}/{mode}.txt", "w")
+        file.write('\n'.join(lines))
+        file.close()
+
+
+class LRS2DatasetMouth(Dataset):
+    def __init__(self, path, mode="train"):
+        self.file_paths, self.file_names = self.build_file_list(path, mode)
+        # self.facenet = FaceNet()
+        self.predictor = FacePredictor()
+
+    def build_file_list(self, directory, mode):
+        file_list = []
+        paths = []
+
+        if mode == "pretrain":
+            file = open(f"{directory}/pretrain.txt", "r")
+            content = file.read()
+            for file in content.splitlines():
+                file_list.append(f"pretrain/{file}")
+                paths.append(f"{directory}/mvlrs_v1/pretrain/{file}")
+        else:
+            file = open(f"{directory}/{mode}.txt", "r")
+            content = file.read()
+            for file in content.splitlines():
+                file = file.split(" ")[0]
+                file_list.append(f"main/{file}")
+                paths.append(f"{directory}/mvlrs_v1/main/{file}")
+
+        return paths, file_list
+
+    def __len__(self):
+        return len(self.file_names)
+
+    def __getitem__(self, idx):
+        file_name = self.file_names[idx]
+        video_path = self.file_paths[idx] + ".mp4"
+        video, _, _ = torchvision.io.read_video(video_path)
+        frames = video.permute(0, 3, 1, 2)  # T C H W
+
+        skip = False
+        boxes = []
+        for i, frame in enumerate(frames):
+            bb = self.facenet.detect(frame)
+            if bb is None:
+                print(f"No face in frame {i} detected: {file_name}")
+                skip = True
+                break
+            if len(bb) > 1:
+                box = bb[0]  # first is largest face
+            else:
+                box = bb[0]
+
+            box = [str(f"{pos:.2f}") for pos in box]
+            boxes.append(";".join(box))
+
+        return {'bb': boxes, 'file': file_name, 'skip': skip}
+
+
+def mouth_bounding_boxes(path, output_path):
+    os.makedirs(output_path, exist_ok=True)
+
+    for mode in ['val', 'test', 'train', 'pretrain']:
+        dataset = LRS2DatasetMouth(path=path, mode=mode)
+        lines = []
+        with tqdm(total=len(dataset)) as progress:
+            for sample in dataset:
+                skip = sample['skip']
+                if not skip:
+                    boxes = sample['bb']
+                    file = sample['file']
+                    boxes = "|".join(boxes)
+                    line = f"{file};{boxes}"
+                    lines.append(line)
+                progress.update(1)
+
+        file = open(f"{output_path}/{mode}_face_boxes.txt", "w")
         file.write('\n'.join(lines))
         file.close()

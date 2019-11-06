@@ -15,7 +15,6 @@ dependencies:
   - pip
   - psutil
   - matplotlib=3.1.1
-  - nomkl
   - pip:
       - opencv-python==4.1.1.26
       - albumentations==0.4.2
@@ -23,8 +22,9 @@ dependencies:
       - wandb
       - wget
       - git+https://github.com/theSoenke/pytorch-trainer
+      - git+https://github.com/timesler/facenet-pytorch.git
+      # - dlib==19.18.0
+      # - face_alignment==1.0.0
       # - tensorboard==2.0.0
       # - pillow-simd
       # - imutils==0.5.2
-      # - dlib==19.17.0
-      # - face_alignment==1.0.0
