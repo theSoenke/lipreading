@@ -71,11 +71,14 @@ class LRS2Model(Module):
         dlogits = torch.autograd.grad(loss_all, output, grad_outputs=weight)[0]
         output.backward(dlogits)
 
-        if batch_num % 250 == 0:
-            _, _, samples = self.decoder.predict(frames.size(0), output, y, lengths, y_lengths, n_show=3)
+        logs = {'train_loss': loss}
+        if batch_num % 50 == 0:
+            predicted, gt, samples = self.decoder.predict(frames.size(0), output, y, lengths, y_lengths, n_show=3)
+            wer = self.decoder.wer_batch(predicted, gt)
+            cer = self.decoder.cer_batch(predicted, gt)
+            logs = {'train_loss': loss, 'train_cer': cer, 'train_wer': wer}
             print(samples)
 
-        logs = {'train_loss': loss}
         return {'log': logs}
 
     def validation_step(self, batch, batch_num):
