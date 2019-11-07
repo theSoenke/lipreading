@@ -271,10 +271,33 @@ def mouth_bounding_boxes(path, output_path):
 
                 if not skip:
                     box = "|".join(box)
-                    line = f"{file};{box}"
+                    line = f"{file}:{box}"
                     lines.append(line)
                 progress.update(1)
 
         file = open(f"{output_path}/{mode}_face_boxes.txt", "w")
         file.write('\n'.join(lines))
         file.close()
+
+
+def prepare_language_model(path, output_path):
+    os.makedirs(output_path, exist_ok=True)
+
+    file = open(f"{path}/train.txt", "r")
+    content = file.read()
+    sentence_lines = []
+    char_lines = []
+    for file in content.splitlines():
+        label_file = open(f"{path}/mvlrs_v1/main/{file}.txt")
+        label = label_file.read()
+        sentence = label.splitlines()[0][7:].lower()
+        sentence_lines.append(sentence)
+        sentence = sentence.replace(' ', '@') # prepare for training char lm
+        char_lines.append(' '.join([char for char in sentence]))
+    file = open(f"{output_path}/sentences.txt", "w")
+    file.write('\n'.join(sentence_lines))
+    file.close()
+
+    file = open(f"{output_path}/characters.txt", "w")
+    file.write('\n'.join(char_lines))
+    file.close()

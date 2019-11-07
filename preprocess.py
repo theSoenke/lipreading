@@ -5,6 +5,7 @@ import psutil
 
 from src.data.lrs2 import extract_angles as lrs2_extract_angles
 from src.data.lrs2 import mouth_bounding_boxes as lrs2_mouth_bounding_boxes
+from src.data.lrs2 import build_language_model as lrs2_prepare_language_model
 from src.data.lrw import extract_angles as lrw_extract_angles
 from src.data.lrw import preprocess as process_lrw
 from src.data.ouluvs2 import preprocess as process_ouluvs2
@@ -30,5 +31,6 @@ if __name__ == "__main__":
     elif args.set == "lrs2":
         # lrs2_extract_angles(args.data, output_path=output_path, num_workers=args.workers)
         lrs2_mouth_bounding_boxes(args.data, output_path=output_path)
+        lrs2_prepare_language_model(args.data, output_path)
     else:
         raise Exception("Not a valid set name")
