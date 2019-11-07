@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 
 from src.data.ctc_utils import ctc_collate
 from src.data.grid import GRIDDataset
-from src.models.ctc_decoder import Decoder
+from src.decoder.greedy import GreedyDecoder
 
 
 class LipNet(Module):
@@ -24,7 +24,7 @@ class LipNet(Module):
         self.hparams = hparams
         self.vocab = GRIDDataset(path=self.hparams.data).vocab
         self.vocab_size = len(self.vocab)
-        self.decoder = Decoder(self.vocab)
+        self.decoder = GreedyDecoder(self.vocab)
         self.loss = nn.CTCLoss(reduction='none', zero_infinity=True)
         self.dropout = 0.5
         self.rnn_size = 256
