@@ -17,5 +17,6 @@ for url in "${urls[@]}"; do
 done
 
 cat $dir/lrw-v1-parta* > $dir/lrw-v1.tar
+tar xf $dir/lrs2_v1.tar -O $dir
 mkdir -p data/datasets
 ln -sf $dir/lipread_mp4 data/datasets/lrw

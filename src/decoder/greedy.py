@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+
 from src.decoder.decoder import Decoder
 
 
@@ -12,11 +13,10 @@ class GreedyDecoder(Decoder):
             seq_len = tokens.size(0)
         out = []
         for i in range(seq_len):
-            if len(out) == 0:
+            if tokens[i] != 0 and len(out) == 0:
                 out.append(tokens[i])
-            else:
-                if tokens[i] != tokens[i - 1]:
-                    out.append(tokens[i])
+            elif tokens[i] != 0 and tokens[i] != tokens[i - 1]:
+                out.append(tokens[i])
         return ''.join(self.vocab_list[i] for i in out)
 
     def decode(self, logits, seq_lens):
