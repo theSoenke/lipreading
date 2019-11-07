@@ -209,10 +209,8 @@ class LRS2DatasetMouth(Dataset):
         for i, frame in enumerate(frames):
             _, landmarks = self.facenet.detect(frame)
 
-            if len(landmarks) == 0:
+            if len(landmarks) == 0 or landmarks.shape[2] == 0:
                 skip = True
-                import pdb
-                pdb.set_trace()
                 print(f"No face found: {video_path}")
                 break
 
@@ -241,11 +239,7 @@ class LRS2DatasetMouth(Dataset):
             width = 50
             height = 20
 
-            try:
-                left, upper, right, lower = self.extract_bb(landmarks)
-            except:
-                import pdb
-                pdb.set_trace()
+            left, upper, right, lower = self.extract_bb(landmarks)
             vertical_center = (left + right) / 2
             horizontal_center = (upper + lower) / 2
 
