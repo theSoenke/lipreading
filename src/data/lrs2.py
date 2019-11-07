@@ -23,9 +23,10 @@ class LRS2Dataset(Dataset):
         self.estimate_pose = estimate_pose
         self.max_timesteps = max_timesteps
         self.pretrain_words = pretrain_words
-
         self.augmentation = augmentations if mode == 'train' or mode == "pretrain" else False
-        self.file_paths, self.file_names = self.build_file_list(path, mode)
+        self.file_paths, self.file_names, self.crops = self.build_file_list(path, mode)
+
+        torchvision.set_video_backend('video_reader')
 
         blank_char = "-"
         numbers = "".join([str(i) for i in range(10)])
@@ -35,23 +36,34 @@ class LRS2Dataset(Dataset):
         self.char2int = {char: index for index, char in int2char.items()}
 
     def build_file_list(self, directory, mode):
-        file_list = []
-        paths = []
+        file_list, paths = [], []
+        crops = {}
+
+        file = open(f"data/preprocess/lrs2/{mode}_crop.txt", "r")
+        content = file.read()
+        for line in content.splitlines():
+            file = line.split(";")[0]
+            crop = line[len(file) + 1:]
+            crops[file] = crop
+
         if self.pretrain:
             file = open(f"{directory}/pretrain.txt", "r")
             content = file.read()
             for file in content.splitlines():
-                file_list.append(file)
-                paths.append(f"{directory}/mvlrs_v1/pretrain/{file}")
+                if file in crops:
+                    file_list.append(file)
+                    paths.append(f"{directory}/mvlrs_v1/pretrain/{file}")
         else:
             file = open(f"{directory}/{mode}.txt", "r")
             content = file.read()
             for file in content.splitlines():
                 file = file.split(" ")[0]
-                file_list.append(file)
-                paths.append(f"{directory}/mvlrs_v1/main/{file}")
+                import pdb; pdb.set_trace()
+                if file in crops:
+                    file_list.append(file)
+                    paths.append(f"{directory}/mvlrs_v1/main/{file}")
 
-        return paths, file_list
+        return paths, file_list, crops
 
     def build_tensor(self, frames):
         temporalVolume = torch.zeros(self.max_timesteps, self.in_channels, 112, 112)
@@ -177,14 +189,14 @@ class LRS2DatasetMouth(Dataset):
             file = open(f"{directory}/pretrain.txt", "r")
             content = file.read()
             for file in content.splitlines():
-                file_list.append(f"pretrain/{file}")
+                file_list.append(file)
                 paths.append(f"{directory}/mvlrs_v1/pretrain/{file}")
         else:
             file = open(f"{directory}/{mode}.txt", "r")
             content = file.read()
             for file in content.splitlines():
                 file = file.split(" ")[0]
-                file_list.append(f"main/{file}")
+                file_list.append(file")
                 paths.append(f"{directory}/mvlrs_v1/main/{file}")
 
         return paths, file_list
@@ -209,7 +221,6 @@ class LRS2DatasetMouth(Dataset):
         boxes = []
         for i, frame in enumerate(frames):
             _, landmarks = self.facenet.detect(frame)
-
             if len(landmarks) == 0 or landmarks.shape[2] == 0:
                 skip = True
                 print(f"No face found: {video_path}")
@@ -275,7 +286,7 @@ def mouth_bounding_boxes(path, output_path):
                     lines.append(line)
                 progress.update(1)
 
-        file = open(f"{output_path}/{mode}_face_boxes.txt", "w")
+        file = open(f"{output_path}/{mode}_crop.txt", "w")
         file.write('\n'.join(lines))
         file.close()
 
@@ -286,18 +297,18 @@ def prepare_language_model(path, output_path):
     file = open(f"{path}/train.txt", "r")
     content = file.read()
     sentence_lines = []
-    char_lines = []
+    # char_lines = []
     for file in content.splitlines():
         label_file = open(f"{path}/mvlrs_v1/main/{file}.txt")
         label = label_file.read()
         sentence = label.splitlines()[0][7:].lower()
         sentence_lines.append(sentence)
-        sentence = sentence.replace(' ', '@') # prepare for training char lm
-        char_lines.append(' '.join([char for char in sentence]))
+        # sentence = sentence.replace(' ', '@') # prepare for training char lm
+        # char_lines.append(' '.join([char for char in sentence]))
     file = open(f"{output_path}/sentences.txt", "w")
     file.write('\n'.join(sentence_lines))
     file.close()
 
-    file = open(f"{output_path}/characters.txt", "w")
-    file.write('\n'.join(char_lines))
-    file.close()
+    # file = open(f"{output_path}/characters.txt", "w")
+    # file.write('\n'.join(char_lines))
+    # file.close()
