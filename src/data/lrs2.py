@@ -13,6 +13,7 @@ from torchvision import transforms
 from tqdm import tqdm
 
 from src.data.preprocess.facenet import FaceNet
+from src.data.transforms import Crop
 
 
 class LRS2Dataset(Dataset):
@@ -42,9 +43,15 @@ class LRS2Dataset(Dataset):
         file = open(f"data/preprocess/lrs2/{mode}_crop.txt", "r")
         content = file.read()
         for line in content.splitlines():
-            file = line.split(";")[0]
-            crop = line[len(file) + 1:]
-            crops[file] = crop
+            file = line.split(":")[0]
+            crop_str = line[len(file) + 1:]
+
+            crop_list = [crop.split(";") for crop in crop_str.split("|")]
+            for i, crop_frame in enumerate(crop_list):
+                crop = [float(crop) for crop in crop_frame]
+                crop_list[i] = crop
+
+            crops[file] = crop_list
 
         if self.pretrain:
             file = open(f"{directory}/pretrain.txt", "r")
@@ -58,40 +65,38 @@ class LRS2Dataset(Dataset):
             content = file.read()
             for file in content.splitlines():
                 file = file.split(" ")[0]
-                import pdb; pdb.set_trace()
                 if file in crops:
                     file_list.append(file)
                     paths.append(f"{directory}/mvlrs_v1/main/{file}")
 
         return paths, file_list, crops
 
-    def build_tensor(self, frames):
-        temporalVolume = torch.zeros(self.max_timesteps, self.in_channels, 112, 112)
+    def build_tensor(self, frames, crops):
+        temporalVolume = torch.zeros(self.max_timesteps, self.in_channels, 40, 70)
         if(self.augmentation):
             augmentations = transforms.Compose([])  # TODO
         else:
             augmentations = transforms.Compose([])
 
-        if self.in_channels == 1:
-            transform = transforms.Compose([
-                transforms.ToPILImage(),
-                transforms.CenterCrop((112, 112)),
-                augmentations,
-                transforms.Grayscale(num_output_channels=1),
-                transforms.ToTensor(),
-                transforms.Normalize([0.4161, ], [0.1688, ]),
-            ])
-        elif self.in_channels == 3:
-            transform = transforms.Compose([
-                transforms.ToPILImage(),
-                transforms.CenterCrop((112, 112)),
-                augmentations,
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-            ])
+        for i, frame in enumerate(frames):
+            if self.in_channels == 1:
+                transform = transforms.Compose([
+                    transforms.ToPILImage(),
+                    Crop(crops[i]),
+                    augmentations,
+                    transforms.Grayscale(num_output_channels=1),
+                    transforms.ToTensor(),
+                    transforms.Normalize([0.4161, ], [0.1688, ]),
+                ])
+            elif self.in_channels == 3:
+                transform = transforms.Compose([
+                    transforms.ToPILImage(),
+                    Crop(crops[i]),
+                    augmentations,
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                ])
 
-        for i in range(0, len(frames)):
-            frame = frames[i].permute(2, 0, 1)  # (C, H, W)
             temporalVolume[i] = transform(frame)
 
         temporalVolume = temporalVolume.transpose(1, 0)  # (C, D, H, W)
@@ -134,6 +139,7 @@ class LRS2Dataset(Dataset):
     def __getitem__(self, idx):
         file = self.file_names[idx]
         video, _, info = torchvision.io.read_video(self.file_paths[idx] + ".mp4")  # T, H, W, C
+        video = video.permute(0, 3, 1, 2) # T C H W
         file_path = self.file_paths[idx]
         content = open(file_path + ".txt", "r").read()
 
@@ -146,7 +152,7 @@ class LRS2Dataset(Dataset):
 
         assert len(video) <= self.max_timesteps, f"Video too large with {len(video)} frames: {file_path}"
         content = content.lower()
-        frames = self.build_tensor(video)
+        frames = self.build_tensor(video, self.crops[file])
         encoded = [self.char2int[char] for char in content]
         input_lengths = video.size(0)
         return frames, encoded, input_lengths, idx
@@ -196,7 +202,7 @@ class LRS2DatasetMouth(Dataset):
             content = file.read()
             for file in content.splitlines():
                 file = file.split(" ")[0]
-                file_list.append(file")
+                file_list.append(file)
                 paths.append(f"{directory}/mvlrs_v1/main/{file}")
 
         return paths, file_list
