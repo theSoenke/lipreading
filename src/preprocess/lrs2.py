@@ -82,7 +82,13 @@ class LRS2DatasetMouth(Dataset):
 
         skip = False
         boxes = []
-        _, batch_landmarks = self.facenet.detect(frames)
+        try:
+            _, batch_landmarks = self.facenet.detect(frames)
+        except Exception as e:
+            print(f"Could not process: {file_name}", e)
+            skip = True
+            return {'bb': boxes, 'file': file_name, 'skip': skip}
+
         for landmarks in batch_landmarks:
             if len(landmarks) == 0 or landmarks.shape[1] == 0 or landmarks.shape[0] == 0:
                 skip = True
