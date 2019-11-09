@@ -10,11 +10,11 @@ from torchvision import transforms
 from tqdm import tqdm
 
 from src.data.transforms import Crop
-from src.preprocess.facenet import FaceNet
+from src.preprocess.face_detection.facenet import FaceNet
 
 
 def extract_angles(path, output_path, num_workers):
-    from src.preprocess.pose_hopenet import HeadPose
+    from src.preprocess.head_pose.hopenet import HeadPose
     head_pose = HeadPose()
 
     os.makedirs(output_path, exist_ok=True)
@@ -40,7 +40,7 @@ def extract_angles(path, output_path, num_workers):
 class LRS2DatasetMouth(Dataset):
     def __init__(self, path, mode="train"):
         self.file_paths, self.file_names = self.build_file_list(path, mode)
-        self.file_paths, self.file_names = self.file_paths[:1000], self.file_names[:1000]
+        # self.file_paths, self.file_names = self.file_paths[:1000], self.file_names[:1000]
         self.facenet = FaceNet()
         torchvision.set_video_backend('video_reader')
 
@@ -78,13 +78,13 @@ class LRS2DatasetMouth(Dataset):
         file_name = self.file_names[idx]
         video_path = self.file_paths[idx] + ".mp4"
         video, _, _ = torchvision.io.read_video(video_path, pts_unit='sec')
-        frames = video.permute(0, 3, 1, 2) # T C H W
+        frames = video.permute(0, 3, 1, 2)  # T C H W
 
         skip = False
         boxes = []
         _, batch_landmarks = self.facenet.detect(frames)
         for landmarks in batch_landmarks:
-            if len(landmarks) == 0 or landmarks.shape[1] == 0:
+            if len(landmarks) == 0 or landmarks.shape[1] == 0 or landmarks.shape[0] == 0:
                 skip = True
                 print(f"No face found: {video_path}")
                 break

@@ -13,7 +13,6 @@ from torchvision import transforms
 from tqdm import tqdm
 
 from src.data.transforms import Crop
-from src.preprocess.facenet import FaceNet
 
 
 class LRS2Dataset(Dataset):
