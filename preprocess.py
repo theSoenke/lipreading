@@ -3,12 +3,14 @@ import os
 
 import psutil
 
-from src.data.lrs2 import extract_angles as lrs2_extract_angles
-from src.data.lrs2 import mouth_bounding_boxes as lrs2_mouth_bounding_boxes
-from src.data.lrs2 import prepare_language_model as lrs2_prepare_language_model
 from src.data.lrw import extract_angles as lrw_extract_angles
 from src.data.lrw import preprocess as process_lrw
 from src.data.ouluvs2 import preprocess as process_ouluvs2
+from src.preprocess.lrs2 import extract_angles as lrs2_extract_angles
+from src.preprocess.lrs2 import \
+    mouth_bounding_boxes as lrs2_mouth_bounding_boxes
+from src.preprocess.lrs2 import \
+    prepare_language_model as lrs2_prepare_language_model
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

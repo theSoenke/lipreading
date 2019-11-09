@@ -130,7 +130,7 @@ class LRWDataset(Dataset):
 
 
 def extract_angles(path, output_path, num_workers, seed):
-    from src.data.preprocess.pose_hopenet import HeadPose
+    from src.preprocess.pose_hopenet import HeadPose
     head_pose = HeadPose()
 
     words = None

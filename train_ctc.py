@@ -13,7 +13,7 @@ if __name__ == "__main__":
     parser.add_argument('--data', default="data/datasets/lrs2")
     parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints/lrs2')
     parser.add_argument("--checkpoint", type=str)
-    parser.add_argument("--batch_size", type=int, default=6)
+    parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
