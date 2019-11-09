@@ -9,12 +9,13 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from tqdm import tqdm
 
+from src.data.lrs2 import LRS2Dataset
 from src.data.transforms import Crop
 from src.preprocess.face_detection.facenet import FaceNet
+from src.preprocess.head_pose.hopenet import HeadPose
 
 
 def extract_angles(path, output_path, num_workers):
-    from src.preprocess.head_pose.hopenet import HeadPose
     head_pose = HeadPose()
 
     os.makedirs(output_path, exist_ok=True)
@@ -87,20 +88,21 @@ class LRS2DatasetMouth(Dataset):
             if i % self.skip_frames == 0:
                 every_nth_frame.append(frame)
 
-        skip = False
         boxes = []
         try:
             _, batch_landmarks = self.facenet.detect(every_nth_frame)
         except Exception as e:
             print(f"Could not process: {file_name}", e)
-            skip = True
-            return {'bb': [], 'file': file_name, 'skip': skip}
+            return {'bb': [], 'file': file_name, 'skip': True}
+
+        if len(every_nth_frame) != len(batch_landmarks):
+            print("Mismatch of detected landmarks")
+            return {'bb': [], 'file': file_name, 'skip': True}
 
         for landmarks in batch_landmarks:
             if len(landmarks) == 0 or landmarks.shape[1] == 0 or landmarks.shape[0] == 0:
-                skip = True
                 print(f"No face found: {video_path}")
-                break
+                return {'bb': [], 'file': file_name, 'skip': True}
 
             if landmarks.shape[1] >= 2:
                 # choose largest face
@@ -139,7 +141,8 @@ class LRS2DatasetMouth(Dataset):
                 else:
                     all_boxes.append(box)
 
-        return {'bb': all_boxes, 'file': file_name, 'skip': skip}
+        assert len(all_boxes) == num_frames
+        return {'bb': all_boxes, 'file': file_name, 'skip': False}
 
 
 def mouth_bounding_boxes(path, output_path):
@@ -149,6 +152,7 @@ def mouth_bounding_boxes(path, output_path):
         dataset = LRS2DatasetMouth(path=path, mode=mode, skip_frames=3)
         lines = []
         with tqdm(total=len(dataset)) as progress:
+            progress.set_description(mode)
             for sample in dataset:
                 skip = sample['skip']
                 box = sample['bb']

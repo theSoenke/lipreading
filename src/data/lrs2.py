@@ -26,7 +26,7 @@ class LRS2Dataset(Dataset):
         self.augmentation = augmentations if mode == 'train' or mode == "pretrain" else False
         self.file_paths, self.file_names, self.crops = self.build_file_list(path, mode)
 
-        torchvision.set_video_backend('video_reader')
+        # torchvision.set_video_backend('video_reader')
 
         blank_char = "-"
         numbers = "".join([str(i) for i in range(10)])
