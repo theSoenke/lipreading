@@ -12,7 +12,7 @@ class FaceNet():
         self.mtcnn = MTCNN(select_largest=True, device=device)
 
     def detect(self, image):
-        if isinstance(image, torch.Tensor) and len(image.shape) == 4:
+        if isinstance(image, torch.Tensor) and len(image.shape) == 4 or isinstance(image, list):
             data = []
             for frame in image:
                 frame = transforms.functional.to_pil_image(frame)

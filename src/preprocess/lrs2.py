@@ -38,11 +38,12 @@ def extract_angles(path, output_path, num_workers):
 
 
 class LRS2DatasetMouth(Dataset):
-    def __init__(self, path, mode="train"):
+    def __init__(self, path, mode="train", skip_frames=1):
+        self.skip_frames = skip_frames
         self.file_paths, self.file_names = self.build_file_list(path, mode)
         # self.file_paths, self.file_names = self.file_paths[:1000], self.file_names[:1000]
         self.facenet = FaceNet()
-        torchvision.set_video_backend('video_reader')
+        # torchvision.set_video_backend('video_reader')
 
     def build_file_list(self, directory, mode):
         file_list = []
@@ -79,15 +80,21 @@ class LRS2DatasetMouth(Dataset):
         video_path = self.file_paths[idx] + ".mp4"
         video, _, _ = torchvision.io.read_video(video_path, pts_unit='sec')
         frames = video.permute(0, 3, 1, 2)  # T C H W
+        num_frames = len(video)
+
+        every_nth_frame = []
+        for i, frame in enumerate(frames):
+            if i % self.skip_frames == 0:
+                every_nth_frame.append(frame)
 
         skip = False
         boxes = []
         try:
-            _, batch_landmarks = self.facenet.detect(frames)
+            _, batch_landmarks = self.facenet.detect(every_nth_frame)
         except Exception as e:
             print(f"Could not process: {file_name}", e)
             skip = True
-            return {'bb': boxes, 'file': file_name, 'skip': skip}
+            return {'bb': [], 'file': file_name, 'skip': skip}
 
         for landmarks in batch_landmarks:
             if len(landmarks) == 0 or landmarks.shape[1] == 0 or landmarks.shape[0] == 0:
@@ -124,14 +131,22 @@ class LRS2DatasetMouth(Dataset):
             box = [str(f"{pos}") for pos in box]
             boxes.append(";".join(box))
 
-        return {'bb': boxes, 'file': file_name, 'skip': skip}
+        all_boxes = []
+        for box in boxes:
+            for i in range(self.skip_frames):
+                if len(all_boxes) == num_frames:
+                    break
+                else:
+                    all_boxes.append(box)
+
+        return {'bb': all_boxes, 'file': file_name, 'skip': skip}
 
 
 def mouth_bounding_boxes(path, output_path):
     os.makedirs(output_path, exist_ok=True)
 
     for mode in ['val', 'test', 'train', 'pretrain']:
-        dataset = LRS2DatasetMouth(path=path, mode=mode)
+        dataset = LRS2DatasetMouth(path=path, mode=mode, skip_frames=3)
         lines = []
         with tqdm(total=len(dataset)) as progress:
             for sample in dataset:
