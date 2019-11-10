@@ -41,17 +41,11 @@ class LRS2Dataset(Dataset):
 
         file = open(f"data/preprocess/lrs2/{mode}_crop.txt", "r")
         content = file.read()
-        for line in content.splitlines():
+        for i, line in enumerate(content.splitlines()):
             split = line.split(":")
             file = split[0]
             crop_str = split[1]
-
-            crop_list = [crop.split(";") for crop in crop_str.split("|")]
-            for i, crop_frame in enumerate(crop_list):
-                crop = [float(crop) for crop in crop_frame]
-                crop_list[i] = crop
-
-            crops[file] = crop_list
+            crops[file] = crop_str
 
         if self.pretrain:
             file = open(f"{directory}/pretrain.txt", "r")
@@ -72,6 +66,11 @@ class LRS2Dataset(Dataset):
         return paths, file_list, crops
 
     def build_tensor(self, frames, crops):
+        crops = [crop.split(";") for crop in crops]
+        for i, crop_frame in enumerate(crops):
+            crop = [float(crop) for crop in crop_frame]
+            crops[i] = crop
+
         temporalVolume = torch.zeros(self.max_timesteps, self.in_channels, 64, 96)
         if(self.augmentation):
             augmentations = transforms.Compose([])  # TODO
@@ -105,7 +104,7 @@ class LRS2Dataset(Dataset):
     def __len__(self):
         return len(self.file_paths)
 
-    def get_pretrain_words(self, fps, content, file_name):
+    def get_pretrain_words(self, content):
         lines = content.splitlines()[4:]
         words = []
         for line in lines:
@@ -127,32 +126,36 @@ class LRS2Dataset(Dataset):
             if end > sample_end:
                 sample_end = end
             content = content + " " + word
-        start_frame = int(sample_start * fps)
-        stop_frame = math.ceil(sample_end * fps)
 
-        if stop_frame - start_frame > self.max_timesteps:
-            print(f"Cutting frames off. Requires {stop_frame - start_frame} frames: {file_name}")
-            stop_frame = start_frame + self.max_timesteps
-
-        return content.strip(), start_frame, stop_frame
+        return content.strip(), sample_start, sample_end
 
     def __getitem__(self, idx):
         file = self.file_names[idx]
-        video, _, info = torchvision.io.read_video(self.file_paths[idx] + ".mp4", pts_unit='sec')  # T, H, W, C
-        video = video.permute(0, 3, 1, 2)  # T C H W
         file_path = self.file_paths[idx]
         content = open(file_path + ".txt", "r").read()
 
+        frame_crops = self.crops[file].split("|")
+        start_sec = 0
+        stop_sec = None
         if self.pretrain:
-            fps = info['video_fps']
-            content, start_frame, stop_frame = self.get_pretrain_words(fps, content, file_path)
-            video = video[start_frame:stop_frame]
-            crop = self.crops[file][start_frame:stop_frame]
+            content, start_sec, stop_sec = self.get_pretrain_words(content)
         else:
             content = content.splitlines()[0][7:]
-            crop = self.crops[file]
+            crop = frame_crops
 
+        video, _, info = torchvision.io.read_video(file_path + ".mp4", start_pts=start_sec, end_pts=stop_sec, pts_unit='sec')  # T, H, W, C
+        video = video.permute(0, 3, 1, 2)  # T C H W
         num_frames = video.size(0)
+
+        if num_frames > self.max_timesteps:
+            print(f"Cutting frames off. Requires {len(video)} frames: {file}")
+            video = video[:self.max_timesteps]
+            num_frames = video.size(0)
+
+        if self.pretrain:
+            fps = info['video_fps']
+            start_frame = int(start_sec * fps)
+            crop = frame_crops[start_frame:start_frame + num_frames]
 
         assert num_frames <= self.max_timesteps, f"Video too large with {num_frames} frames: {file_path}"
         content = content.lower()
