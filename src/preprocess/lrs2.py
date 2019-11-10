@@ -119,8 +119,8 @@ class LRS2DatasetMouth(Dataset):
             height = 64
 
             left, upper, right, lower = self.extract_bb(landmarks)
-            vertical_center = (left + right) / 2
-            horizontal_center = (upper + lower) / 2
+            horizontal_center = (left + right) / 2
+            vertical_center = (upper + lower) / 2
 
             box = [
                 horizontal_center - (width // 2),
