@@ -114,9 +114,9 @@ def resnet34(pretrained=False, **kwargs):
 
 
 class ResNetModel(nn.Module):
-    def __init__(self, layers=18, pretrained=False):
+    def __init__(self, layers=18, output_dim=256, pretrained=False):
         super().__init__()
-        self.num_classes = 256
+        self.num_classes = output_dim
         if layers == 18:
             self.resnet = resnet18(pretrained=pretrained, num_classes=self.num_classes)
         elif layers == 34:

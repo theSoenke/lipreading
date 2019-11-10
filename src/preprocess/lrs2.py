@@ -42,7 +42,6 @@ class LRS2DatasetMouth(Dataset):
     def __init__(self, path, mode="train", skip_frames=1):
         self.skip_frames = skip_frames
         self.file_paths, self.file_names = self.build_file_list(path, mode)
-        # self.file_paths, self.file_names = self.file_paths[:1000], self.file_names[:1000]
         self.facenet = FaceNet()
         # torchvision.set_video_backend('video_reader')
 
@@ -149,7 +148,7 @@ def mouth_bounding_boxes(path, output_path):
     os.makedirs(output_path, exist_ok=True)
 
     for mode in ['val', 'test', 'train', 'pretrain']:
-        dataset = LRS2DatasetMouth(path=path, mode=mode, skip_frames=3)
+        dataset = LRS2DatasetMouth(path=path, mode=mode, skip_frames=5)
         lines = []
         with tqdm(total=len(dataset)) as progress:
             progress.set_description(mode)

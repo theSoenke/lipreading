@@ -42,8 +42,9 @@ class LRS2Dataset(Dataset):
         file = open(f"data/preprocess/lrs2/{mode}_crop.txt", "r")
         content = file.read()
         for line in content.splitlines():
-            file = line.split(":")[0]
-            crop_str = line[len(file) + 1:]
+            split = line.split(":")
+            file = split[0]
+            crop_str = split[1]
 
             crop_list = [crop.split(";") for crop in crop_str.split("|")]
             for i, crop_frame in enumerate(crop_list):
@@ -146,12 +147,17 @@ class LRS2Dataset(Dataset):
             fps = info['video_fps']
             content, start_frame, stop_frame = self.get_pretrain_words(fps, content, file_path)
             video = video[start_frame:stop_frame]
+            crop = self.crops[file][start_frame:stop_frame]
         else:
             content = content.splitlines()[0][7:]
+            crop = self.crops[file]
 
-        assert len(video) <= self.max_timesteps, f"Video too large with {len(video)} frames: {file_path}"
+        num_frames = video.size(0)
+
+        assert num_frames <= self.max_timesteps, f"Video too large with {num_frames} frames: {file_path}"
         content = content.lower()
-        frames = self.build_tensor(video, self.crops[file])
+
+        assert len(crop) == num_frames
+        frames = self.build_tensor(video, crop)
         encoded = [self.char2int[char] for char in content]
-        input_lengths = video.size(0)
-        return frames, encoded, input_lengths, idx
+        return frames, encoded, num_frames, idx

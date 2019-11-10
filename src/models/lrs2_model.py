@@ -17,7 +17,7 @@ from src.models.resnet import ResNetModel
 
 
 class LRS2Model(Module):
-    def __init__(self, hparams, in_channels=1, augmentations=False, pretrain=False):
+    def __init__(self, hparams, in_channels=1, augmentations=False, pretrain=False, hidden_size=256):
         super().__init__()
         self.hparams = hparams
         self.in_channels = in_channels
@@ -34,15 +34,15 @@ class LRS2Model(Module):
             nn.ReLU(True),
             nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
         )
-        self.resnet = ResNetModel(layers=hparams.resnet, pretrained=hparams.pretrained)
+        self.resnet = ResNetModel(layers=hparams.resnet, output_dim=hidden_size, pretrained=hparams.pretrained)
         self.lstm = nn.LSTM(
-            input_size=256,
-            hidden_size=256,
-            num_layers=2,
+            input_size=hidden_size,
+            hidden_size=hidden_size,
+            num_layers=3,
             batch_first=True,
             bidirectional=True
         )
-        self.fc = nn.Linear(512, len(characters))
+        self.fc = nn.Linear(hidden_size * 2, len(characters))
         self.softmax = nn.LogSoftmax(dim=2)
         self.loss = nn.CTCLoss(reduction='none', zero_infinity=True)
 
