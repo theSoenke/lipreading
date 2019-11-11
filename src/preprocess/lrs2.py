@@ -304,8 +304,7 @@ class FaceLandmarksExtract(object):
 def preprocess(path, output_path, num_workers=4):
     ray.init(num_cpus=num_workers, num_gpus=1)
 
-    # for mode in ['val', 'test', 'train', 'pretrain']:
-    for mode in ['pretrain']:
+    for mode in ['val', 'test', 'train', 'pretrain']:
         start_time = time.time()
         paths, file_list = build_file_list(path, mode=mode)
         actors = [FaceLandmarksExtract.remote() for _ in range(num_workers)]

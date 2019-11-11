@@ -60,6 +60,7 @@ if __name__ == "__main__":
         num_max_epochs=args.epochs,
         early_stop_callback=early_stop_callback,
         checkpoint_callback=checkpoint_callback,
+        use_amp=True,
     )
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Trainable parameters: {trainable_params}")
@@ -82,6 +83,7 @@ if __name__ == "__main__":
             model.pretrain_words = part[1]
             trainer.num_max_epochs = part[2]
             trainer.fit(model)
+            logger.save_file(checkpoint_callback.last_checkpoint_path)
 
         trainer.validate(model)
         print("Pretraining finished")
