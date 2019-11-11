@@ -1,6 +1,8 @@
 import os
+import time
 
 import numpy as np
+import ray
 import torch
 import torchvision
 import torchvision.transforms.functional as F
@@ -189,3 +191,134 @@ def prepare_language_model(path, output_path):
     # file = open(f"{output_path}/characters.txt", "w")
     # file.write('\n'.join(char_lines))
     # file.close()
+
+
+def build_file_list(directory, mode):
+    file_list = []
+    paths = []
+
+    if mode == "pretrain":
+        file = open(f"{directory}/pretrain.txt", "r")
+        content = file.read()
+        for file in content.splitlines():
+            file_list.append(file)
+            paths.append(f"{directory}/mvlrs_v1/pretrain/{file}")
+    else:
+        file = open(f"{directory}/{mode}.txt", "r")
+        content = file.read()
+        for file in content.splitlines():
+            file = file.split(" ")[0]
+            file_list.append(file)
+            paths.append(f"{directory}/mvlrs_v1/main/{file}")
+
+    return paths, file_list
+
+
+@ray.remote(num_gpus=0.1)
+class FaceLandmarksExtract(object):
+    def __init__(self):
+        self.skip_frames = 5
+        self.facenet = FaceNet()
+        self.batch_boxes = []
+
+    def extract_bb(self, landmarks):
+        left = int(landmarks[3])
+        upper = int(landmarks[8])
+        right = int(landmarks[4])
+        lower = int(landmarks[9])
+        return left, upper, right, lower
+
+    def process(self, path, file_name):
+        video_path = path + ".mp4"
+        video, _, _ = torchvision.io.read_video(video_path, pts_unit='sec')
+        frames = video.permute(0, 3, 1, 2)  # T C H W
+        num_frames = len(video)
+
+        every_nth_frame = []
+        for i, frame in enumerate(frames):
+            if i % self.skip_frames == 0:
+                every_nth_frame.append(frame)
+
+        boxes = []
+        try:
+            _, batch_landmarks = self.facenet.detect(every_nth_frame)
+        except Exception as e:
+            print(f"Could not process: {file_name}", e)
+            return {'bb': [], 'file': file_name, 'skip': True}
+
+        if len(every_nth_frame) != len(batch_landmarks):
+            print("Mismatch of detected landmarks")
+            return {'bb': [], 'file': file_name, 'skip': True}
+
+        for landmarks in batch_landmarks:
+            if len(landmarks) == 0 or landmarks.shape[1] == 0 or landmarks.shape[0] == 0:
+                print(f"No face found: {video_path}")
+                return {'bb': [], 'file': file_name, 'skip': True}
+
+            if landmarks.shape[1] >= 2:
+                # choose largest face
+                selected = 0
+                max_size = 0
+                for i in range(landmarks.shape[1]):
+                    left, upper, right, lower = self.extract_bb(landmarks[:, i])
+                    size = (right - left) * (lower - upper)
+                    if size > max_size:
+                        max_size = size
+                        selected = i
+                landmarks = landmarks[:, selected]
+
+            width = 96
+            height = 64
+
+            left, upper, right, lower = self.extract_bb(landmarks)
+            horizontal_center = (left + right) / 2
+            vertical_center = (upper + lower) / 2
+
+            box = [
+                horizontal_center - (width // 2),
+                vertical_center - (height // 2),
+                horizontal_center + (width // 2),
+                vertical_center + (height // 2),
+            ]
+
+            box = [str(f"{pos}") for pos in box]
+            boxes.append(";".join(box))
+
+        all_boxes = []
+        for box in boxes:
+            for i in range(self.skip_frames):
+                if len(all_boxes) == num_frames:
+                    break
+                else:
+                    all_boxes.append(box)
+
+        assert len(all_boxes) == num_frames
+
+        boxes = "|".join(all_boxes)
+        self.batch_boxes.append(f"{file_name}:{boxes}")
+
+    def get_results(self):
+        return self.batch_boxes
+
+
+def preprocess(path, output_path, num_workers=4):
+    ray.init(num_cpus=num_workers, num_gpus=1)
+
+    # for mode in ['val', 'test', 'train', 'pretrain']:
+    for mode in ['pretrain']:
+        start_time = time.time()
+        paths, file_list = build_file_list(path, mode=mode)
+        actors = [FaceLandmarksExtract.remote() for _ in range(num_workers)]
+        for i in range(len(file_list)):
+            actors[i % num_workers].process.remote(paths[i], file_list[i])
+
+        results = ray.get([actor.get_results.remote() for actor in actors])
+        results = np.concatenate(results)
+
+        file = open(f"{output_path}/{mode}_crop.txt", "w")
+        file.write('\n'.join(results))
+        file.close()
+
+        elapsed_time = time.time() - start_time
+        duration = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
+        print(f"Processed {mode} in {duration}")

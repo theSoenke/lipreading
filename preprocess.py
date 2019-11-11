@@ -3,13 +3,15 @@ import os
 
 import psutil
 
+from src.preprocess.lrs2 import extract_angles as lrs2_extract_angles
+from src.preprocess.lrs2 import \
+    mouth_bounding_boxes as lrs2_mouth_bounding_boxes
+from src.preprocess.lrs2 import \
+    prepare_language_model as lrs2_prepare_language_model
+from src.preprocess.lrs2 import preprocess
 from src.preprocess.lrw import extract_angles as lrw_extract_angles
 from src.preprocess.lrw import preprocess as process_lrw
 from src.preprocess.ouluvs2 import preprocess as process_ouluvs2
-from src.preprocess.lrs2 import mouth_bounding_boxes as lrs2_mouth_bounding_boxes
-from src.preprocess.lrs2 import extract_angles as lrs2_extract_angles
-from src.preprocess.lrs2 import \
-    prepare_language_model as lrs2_prepare_language_model
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -31,7 +33,8 @@ if __name__ == "__main__":
         process_ouluvs2(args.data, output_path, workers=args.workers)
     elif args.set == "lrs2":
         # lrs2_extract_angles(args.data, output_path=output_path, num_workers=args.workers)
-        lrs2_mouth_bounding_boxes(args.data, output_path=output_path)
+        # lrs2_mouth_bounding_boxes(args.data, output_path=output_path)
         # lrs2_prepare_language_model(args.data, output_path)
+        preprocess(args.data, output_path, args.workers)
     else:
         raise Exception("Not a valid set name")
