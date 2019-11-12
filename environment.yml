@@ -24,8 +24,8 @@ dependencies:
       - ray
       - git+https://github.com/theSoenke/pytorch-trainer
       - git+https://github.com/theSoenke/facenet-pytorch.git
-      # - dlib==19.18.0
-      # - face_alignment==1.0.0
+      - imutils==0.5.2
+      - dlib==19.18.0
+      - face_alignment==1.0.0
+      - pillow-simd
       # - tensorboard==2.0.0
-      # - pillow-simd
-      # - imutils==0.5.2

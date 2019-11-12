@@ -26,12 +26,11 @@ class LRS2Dataset(Dataset):
         self.augmentation = augmentations if mode == 'train' or mode == "pretrain" else False
         self.file_paths, self.file_names, self.crops = self.build_file_list(path, mode)
 
-        # torchvision.set_video_backend('video_reader')
-
-        blank_char = "-"
+        # blank_char = "-"
         numbers = "".join([str(i) for i in range(10)])
         special_characters = " '"
-        self.characters = blank_char + special_characters + ascii_lowercase + numbers
+        self.characters = special_characters + ascii_lowercase + numbers
+        # self.characters = blank_char + special_characters + ascii_lowercase + numbers
         int2char = dict(enumerate(self.characters))
         self.char2int = {char: index for index, char in int2char.items()}
 
