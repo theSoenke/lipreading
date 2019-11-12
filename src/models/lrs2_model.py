@@ -67,10 +67,6 @@ class LRS2Model(Module):
         loss_all = self.loss(output, y, lengths, y_lengths)
         loss = loss_all.mean()
 
-        weight = torch.ones_like(loss_all)
-        dlogits = torch.autograd.grad(loss_all, output, grad_outputs=weight)[0]
-        output.backward(dlogits)
-
         logs = {'train_loss': loss}
         if batch_num % 50 == 0:
             predicted, gt, samples = self.decoder.predict(frames.size(0), output, y, lengths, y_lengths, n_show=3)
@@ -79,7 +75,7 @@ class LRS2Model(Module):
             logs = {'train_loss': loss, 'train_cer': cer, 'train_wer': wer}
             print(samples)
 
-        return {'log': logs}
+        return {'loss': loss, 'log': logs}
 
     def validation_step(self, batch, batch_num):
         if self.pretrain:
@@ -184,9 +180,3 @@ class LRS2Model(Module):
         )
         return test_loader
 
-
-def accuracy(output, labels):
-    sums = torch.sum(output, dim=1)
-    _, predicted = sums.max(dim=1)
-    correct = (predicted == labels.squeeze(dim=1)).sum().type(torch.FloatTensor)
-    return correct / output.shape[0]

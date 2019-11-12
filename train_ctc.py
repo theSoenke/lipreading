@@ -14,7 +14,7 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints/lrs2')
     parser.add_argument("--checkpoint", type=str)
     parser.add_argument("--batch_size", type=int, default=16)
-    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
     parser.add_argument("--workers", type=int, default=None)
@@ -29,7 +29,7 @@ if __name__ == "__main__":
         save_best_only=True,
         monitor='val_cer',
         mode='min',
-        prefix=f"lrs2"
+        prefix="lrs2"
     )
 
     # early_stop_callback = EarlyStopping(
@@ -60,7 +60,7 @@ if __name__ == "__main__":
         num_max_epochs=args.epochs,
         early_stop_callback=early_stop_callback,
         checkpoint_callback=checkpoint_callback,
-        use_amp=False,
+        use_amp=True,
     )
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Trainable parameters: {trainable_params}")
@@ -72,10 +72,10 @@ if __name__ == "__main__":
 
         # curriculum with max_sequence_length, number_of_words, epochs
         curriculum = [
-            [64, 2, 10],
-            [96, 3, 5],
-            [128, 4, 5],
-            [160, 6, 5],
+            [64, 2, 100],
+            [96, 3, 50],
+            [128, 4, 50],
+            [160, 6, 50],
         ]
 
         for part in curriculum:
