@@ -24,22 +24,6 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    checkpoint_callback = ModelCheckpoint(
-        directory=args.checkpoint_dir,
-        save_best_only=True,
-        monitor='val_cer',
-        mode='min',
-        prefix="lrs2"
-    )
-
-    # early_stop_callback = EarlyStopping(
-    #     monitor='val_cer',
-    #     min_delta=0.00,
-    #     patience=10,
-    #     mode='min'
-    # )
-    early_stop_callback = None
-
     args.workers = psutil.cpu_count(logical=False) if args.workers == None else args.workers
     args.pretrained = False if args.checkpoint != None else args.pretrained
     model = LRS2Model(
@@ -58,8 +42,6 @@ if __name__ == "__main__":
         logger=logger,
         gpu_id=0,
         num_max_epochs=args.epochs,
-        early_stop_callback=early_stop_callback,
-        checkpoint_callback=checkpoint_callback,
         use_amp=True,
     )
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -72,13 +54,20 @@ if __name__ == "__main__":
 
         # curriculum with max_sequence_length, number_of_words, epochs
         curriculum = [
-            [64, 2, 100],
+            [64, 2, 50],
             [96, 3, 50],
-            [128, 4, 50],
-            [160, 6, 50],
+            [128, 4, 30],
+            [160, 6, 30],
         ]
 
         for part in curriculum:
+            checkpoint_callback = ModelCheckpoint(
+                directory=args.checkpoint_dir,
+                period=part[2],
+                prefix=f"lrs2_pretrain_{part[1]}",
+            )
+
+            trainer.checkpoint_callback = checkpoint_callback
             model.max_timesteps = part[0]
             model.pretrain_words = part[1]
             trainer.num_max_epochs = part[2]
@@ -95,8 +84,17 @@ if __name__ == "__main__":
         logger.log_metrics(logs)
         print(f"Initial validation: wer: {logs['val_wer']:.4f}, cer: {logs['val_cer']:.4f}")
 
+    checkpoint_callback = ModelCheckpoint(
+        directory=args.checkpoint_dir,
+        save_best_only=True,
+        monitor='val_cer',
+        mode='min',
+        prefix="lrs2",
+    )
+
+    trainer.val_percent = 1.0
+    trainer.checkpoint_callback = checkpoint_callback
     model.pretrain = False
-    checkpoint_callback.save_best_only = True
     model.max_timesteps = 155
     trainer.num_max_epochs = args.epochs
     trainer.fit(model)
