@@ -8,7 +8,7 @@ import numpy as np
 
 
 class HeadPose():
-    def __init__(self, use_cuda=False):
+    def __init__(self, use_cuda=True):
         device = "cuda" if use_cuda else "cpu"
         self.predictor = face_alignment.FaceAlignment(
             face_alignment.LandmarksType._3D,

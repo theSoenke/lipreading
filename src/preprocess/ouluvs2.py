@@ -1,6 +1,8 @@
 import glob
 import os
 
+import cv2
+import numpy as np
 import psutil
 import torch
 import torchvision
@@ -12,7 +14,77 @@ from torchvision import transforms
 from tqdm import tqdm
 
 from src.data.ouluvs2 import OuluVS2Dataset
-from src.data.transforms import StatefulRandomHorizontalFlip
+from src.preprocess.face_detection.facenet import FaceNet
+from src.preprocess.head_pose.dlib_pose import HeadPose as DlibHeadPose
+from src.preprocess.head_pose.face_alignment_pose import HeadPose as FaHeadPose
+from src.preprocess.head_pose.hopenet import HeadPose as HopeNetHeadPose
+
+
+def first_video_frame(video_path):
+    video, _, _ = torchvision.io.read_video(video_path, pts_unit='sec')
+    frames = video.permute(0, 3, 1, 2)
+    return transforms.functional.to_pil_image(frames[0])
+    # cap = cv2.VideoCapture(video_path)
+    # ret, frame = cap.read()
+    # # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    # cap.release()
+    # cv2.destroyAllWindows()
+    # return frame
+
+
+def build_file_list(path):
+    videos = []
+    pattern = path + "/**/*.mp4"
+    files = glob.glob(pattern, recursive=True)
+    for file in files:
+        videos.append(file)
+    return videos
+
+
+def head_poses(path):
+    predictor = FaHeadPose()
+    file_paths = build_file_list(path)
+    size = 786
+    degree = 15
+
+    failed_samples = {0: 0, 30: 0, 45: 0, 60: 0, 90: 0}
+    total_samples = {0: 0, 30: 0, 45: 0, 60: 0, 90: 0}
+    correct_samples = {0: 0, 30: 0, 45: 0, 60: 0, 90: 0}
+    for file in tqdm(file_paths):
+        frame = first_video_frame(file)
+        crop = (
+            420,
+            0,
+            1500,
+            1080,
+        )
+
+        split = file.split("/")[-1][:-4].split("_")
+        speaker, view, utterance = [int(x[1:]) for x in split]
+        view = [0, 30, 45, 60, 90][view-1]
+        frame = frame.crop(crop).resize((256, 256))
+        # frame = Image.fromarray(frame).crop(crop).resize((256, 256))
+        # frame = np.asarray(frame)
+        total_samples[view] += 1
+        try:
+            euler = predictor.predict(frame)
+            yaw = abs(euler['yaw'])
+            if yaw - degree <= view and yaw + degree >= view:
+                correct_samples[view] += 1
+            else:
+                pass
+                # print(f"Expected: {view:.2f}, Got: {yaw:.2f}")
+        except:
+            import pdb
+            pdb.set_trace()
+            failed_samples[view] += 1
+    print(f"Failed samples: {failed_samples}")
+    print(f"Correct samples: {correct_samples}")
+    print(f"Samples per view: {total_samples}")
+
+    correct = sum(correct_samples.values())
+    acc = correct / (len(file_paths))
+    print(f"Accuracy: {acc:.2f}")
 
 
 class Video(IsDescription):
