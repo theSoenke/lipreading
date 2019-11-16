@@ -20,16 +20,18 @@ from src.preprocess.head_pose.face_alignment_pose import HeadPose as FaHeadPose
 from src.preprocess.head_pose.hopenet import HeadPose as HopeNetHeadPose
 
 
-def first_video_frame(video_path):
+def first_frame_tensor(video_path):
     video, _, _ = torchvision.io.read_video(video_path, pts_unit='sec')
     frames = video.permute(0, 3, 1, 2)
     return transforms.functional.to_pil_image(frames[0])
-    # cap = cv2.VideoCapture(video_path)
-    # ret, frame = cap.read()
-    # # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    # cap.release()
-    # cv2.destroyAllWindows()
-    # return frame
+
+def first_frame_cv2(video_path):
+    cap = cv2.VideoCapture(video_path)
+    ret, frame = cap.read()
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    cap.release()
+    cv2.destroyAllWindows()
+    return frame
 
 
 def build_file_list(path):
@@ -42,16 +44,15 @@ def build_file_list(path):
 
 
 def head_poses(path):
-    predictor = FaHeadPose()
+    predictor = DlibHeadPose()
     file_paths = build_file_list(path)
     size = 786
-    degree = 15
+    degree = 20
 
-    failed_samples = {0: 0, 30: 0, 45: 0, 60: 0, 90: 0}
     total_samples = {0: 0, 30: 0, 45: 0, 60: 0, 90: 0}
     correct_samples = {0: 0, 30: 0, 45: 0, 60: 0, 90: 0}
     for file in tqdm(file_paths):
-        frame = first_video_frame(file)
+        frame = first_frame_cv2(file)
         crop = (
             420,
             0,
@@ -62,23 +63,18 @@ def head_poses(path):
         split = file.split("/")[-1][:-4].split("_")
         speaker, view, utterance = [int(x[1:]) for x in split]
         view = [0, 30, 45, 60, 90][view-1]
+        frame = Image.fromarray(frame)
         frame = frame.crop(crop).resize((256, 256))
-        # frame = Image.fromarray(frame).crop(crop).resize((256, 256))
-        # frame = np.asarray(frame)
+        # frame = transforms.functional.to_tensor(frame)
+        frame = np.asarray(frame)
         total_samples[view] += 1
-        try:
-            euler = predictor.predict(frame)
-            yaw = abs(euler['yaw'])
-            if yaw - degree <= view and yaw + degree >= view:
-                correct_samples[view] += 1
-            else:
-                pass
-                # print(f"Expected: {view:.2f}, Got: {yaw:.2f}")
-        except:
-            import pdb
-            pdb.set_trace()
-            failed_samples[view] += 1
-    print(f"Failed samples: {failed_samples}")
+        euler = predictor.predict(frame)
+        yaw = abs(euler['yaw'])
+        if yaw - degree <= view and yaw + degree >= view:
+            correct_samples[view] += 1
+        else:
+            # print(f"Expected: {view:.2f}, Got: {yaw:.2f}, File: {file}")
+            pass
     print(f"Correct samples: {correct_samples}")
     print(f"Samples per view: {total_samples}")
 

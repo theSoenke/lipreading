@@ -7,16 +7,22 @@ import tables
 
 def accuracy(preds, labels, files, degree=15):
     correct = 0
+    total_samples = {0: 0, 30: 0, 45: 0, 60: 0, 90: 0}
+    correct_samples = {0: 0, 30: 0, 45: 0, 60: 0, 90: 0}
+
     for i, view in enumerate(labels):
         angle = preds[i]
+        total_samples[view] += 1
         if angle - degree <= view and angle + degree >= view:
             correct += 1
+            correct_samples[view] += 1
         else:
             print("Expected: %.2f, Actual: %.2f, File: %s" % (view, angle, files[i]))
 
     acc = correct / len(preds)
     print("Accuracy: %f" % acc)
-
+    print(f"Total samples: {total_samples}")
+    print(f"Correct samples: {correct_samples}")
 
 def plot_pose(path):
     h5file = tables.open_file(path, mode='r')
@@ -46,4 +52,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', required=True)
     args = parser.parse_args()
-    plot_pose(args.data)
+    plot_ouluvs2(args.data)
+    # plot_pose(args.data)

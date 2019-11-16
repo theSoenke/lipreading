@@ -33,12 +33,17 @@ class HeadPose():
 
         return [x * 50, y * 50, z * 50]
 
-    def predict_landmarks(self, frame):
-        return self.predictor.get_landmarks_from_image(frame)
+    def predict_landmarks(self, image):
+        return self.predictor.get_landmarks_from_image(image)
 
-    def predict(self, frame):
-        landmarks = self.predictor.get_landmarks_from_image(frame)
-        landmarks = landmarks[0]
+    def predict(self, image, detect_faces=False):
+        if detect_faces:
+            landmarks = self.predictor.get_landmarks_from_image(image)
+        else:
+            face_box = [0, 0, image.shape[0], image.shape[1]]
+            landmarks = self.predictor.get_landmarks_from_image(image, detected_faces=[face_box])
+
+        landmarks = landmarks[0]  # TODO select largest face
         rotation = np.empty((3, 3))
         rotation[0, :] = (landmarks[16] - landmarks[0])/np.linalg.norm(landmarks[16] - landmarks[0])
         rotation[1, :] = (landmarks[8] - landmarks[27])/np.linalg.norm(landmarks[8] - landmarks[27])

@@ -34,9 +34,13 @@ class HeadPose():
         self.landmark_predictor = dlib.shape_predictor(model_path)
 
     def predict(self, image):
-        face_position = self.face_detector(image, 1)
+        # face_position = self.face_detector(image, 1)
+        # if len(face_position) == 0:
+        #     return None
+        # face_position = face_position[0]
 
-        landmarks = self.landmark_predictor(image, face_position[0])
+        face_position = dlib.rectangle(0, 0, image.shape[0], image.shape[1])
+        landmarks = self.landmark_predictor(image, face_position)
         landmarks = face_utils.shape_to_np(landmarks)
         image_pts = np.float32([landmarks[17], landmarks[21], landmarks[22], landmarks[26], landmarks[36],
                                 landmarks[39], landmarks[42], landmarks[45], landmarks[31], landmarks[35],

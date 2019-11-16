@@ -104,7 +104,7 @@ class LRWDataset(Dataset):
     def __getitem__(self, idx):
         label = self.labels[idx]
         file = self.files[idx]
-        video, _, _ = torchvision.io.read_video(self.video_paths[idx])  # (Tensor[T, H, W, C])
+        video, _, _ = torchvision.io.read_video(self.video_paths[idx], pts_unit='sec')  # (Tensor[T, H, W, C])
         if self.estimate_pose:
             angle_frame = video[14].permute(2, 0, 1)
         else:
