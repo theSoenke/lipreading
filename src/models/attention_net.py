@@ -77,7 +77,7 @@ class AttentionLRNet(Module):
         results = torch.cat(results, dim=1)
         return loss, results
 
-    def decode(self, results, target_tensor, log=False):
+    def decode(self, results, target_tensor, batch_num, log_interval=1, log=False):
         cer = 0
         target_length = results.size(1)
         batch_size = results.size(0)
@@ -87,18 +87,20 @@ class AttentionLRNet(Module):
             for index in range(target_length):
                 output += self.int2char[int(results[batch, index])]
                 label += self.int2char[int(target_tensor[batch, index])]
-            label = label.replace('<pad>', '').replace('<eos>', '@')
-            output = output.replace('<eos>', '@')[:output.find('@')].replace('<pad>', '$').replace('<sos>', '&')
-            if log:
+            label = label.replace('<pad>', '').replace('<eos>', '@')[:-1]
+            output = output.replace('<eos>', '@').replace('<pad>', '$').replace('<sos>', '&')
+            output = output[:output.find('@')]
+            if log and batch_num % log_interval == 0:
                 print([output, label])
-            cer += editdistance.eval(output, label)
+            dist = editdistance.eval(output, label)
+            cer += dist / max(len(output), len(label))
 
         return cer / batch_size
 
     def training_step(self, batch, batch_num):
         input_tensor, lengths, target_tensor = batch
         loss, results = self.forward(input_tensor, lengths, target_tensor)
-        cer = self.decode(results, target_tensor, log=False)
+        cer = self.decode(results, target_tensor, batch_num, log_interval=200, log=True)
 
         logs = {'train_loss': loss, 'train_cer': cer}
         return {'loss': loss, 'cer': cer, 'log': logs}
@@ -106,7 +108,7 @@ class AttentionLRNet(Module):
     def validation_step(self, batch, batch_num):
         input_tensor, lengths, target_tensor = batch
         loss, results = self.forward(input_tensor, lengths, target_tensor)
-        cer = self.decode(results, target_tensor, log=True)
+        cer = self.decode(results, target_tensor, batch_num, log_interval=10, log=True)
 
         return {
             'val_loss': loss,

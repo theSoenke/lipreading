@@ -17,7 +17,7 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint", type=str)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--epochs", type=int, default=50)
-    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
     parser.add_argument("--workers", type=int, default=None)
     parser.add_argument("--resnet", type=int, default=18)
