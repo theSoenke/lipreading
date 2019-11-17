@@ -15,12 +15,12 @@ from src.data.transforms import Crop
 
 
 class LRS2Dataset(Dataset):
-    def __init__(self, path, in_channels=1, mode="train", max_timesteps=128, pretrain_words=0):
+    def __init__(self, path, in_channels=1, mode="train", max_timesteps=128, max_text_len=100, pretrain_words=0):
         self.max_timesteps = max_timesteps
         self.pretrain = mode == "pretrain"
         self.in_channels = in_channels
         self.max_timesteps = max_timesteps
-        self.max_sentence_len = 100
+        self.max_text_len = max_text_len
         self.pretrain_words = pretrain_words
         self.file_paths, self.file_names, self.crops = self.build_file_list(path, mode)
         # self.file_paths, self.file_names = self.file_paths[:100], self.file_names[:100]
@@ -156,8 +156,6 @@ class LRS2Dataset(Dataset):
 
     def encode(self, content):
         encoded = [self.char2int[i] for i in content.replace(' ', '')] + [self.char2int['<eos>']]
-        if len(encoded) < self.max_sentence_len:
-            encoded += [self.char2int['<pad>'] for _ in range(self.max_sentence_len - len(encoded))]
-        else:
-            raise Exception('max text length too short')
+        assert len(encoded) < self.max_text_len, f"max_text_len too short. required {len(encoded)}"
+        encoded += [self.char2int['<pad>'] for _ in range(self.max_text_len - len(encoded))]
         return torch.Tensor(encoded)

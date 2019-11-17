@@ -20,11 +20,14 @@ class AttentionLRNet(Module):
         super().__init__()
         self.hparams = hparams
         self.in_channels = in_channels
+        self.pretrain = pretrain
+        self.max_timesteps = 155
+        self.max_text_len = 100
+        self.pretrain_words = 0
+
         dataset = self.train_dataloader().dataset
         self.int2char = dataset.int2char
         self.char2int = dataset.char2int
-        self.pretrain = pretrain
-        self.max_timesteps = 155
 
         self.frontend = nn.Sequential(
             nn.Conv3d(self.in_channels, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
@@ -136,9 +139,17 @@ class AttentionLRNet(Module):
         return optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
 
     def train_dataloader(self):
+        if self.pretrain:
+            mode = "pretrain"
+        else:
+            mode = "train"
+
         train_data = LRS2Dataset(
             path=self.hparams.data,
-            mode='train',
+            max_text_len=self.max_text_len,
+            mode=mode,
+            max_timesteps=self.max_timesteps,
+            pretrain_words=self.pretrain_words,
         )
         train_loader = DataLoader(
             train_data,
@@ -152,6 +163,8 @@ class AttentionLRNet(Module):
         val_data = LRS2Dataset(
             path=self.hparams.data,
             mode='val',
+            max_timesteps=self.max_timesteps,
+            max_text_len=self.max_text_len,
         )
         val_loader = DataLoader(
             val_data, shuffle=False,
