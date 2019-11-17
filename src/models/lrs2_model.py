@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 
 import wandb
 from src.data.ctc_utils import ctc_collate
-from src.data.lrs2 import LRS2Dataset
+from src.data.lrs2_ctc import LRS2CTCDataset as LRS2Dataset
 from src.decoder.greedy import GreedyDecoder
 from src.models.resnet import ResNetModel
 
@@ -179,4 +179,3 @@ class LRS2Model(Module):
             collate_fn=ctc_collate,
         )
         return test_loader
-

@@ -10,24 +10,29 @@ import torchvision.transforms.functional as F
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
+from tqdm import tqdm
 
 from src.data.transforms import Crop
 
 
-class LRS2Dataset(Dataset):
-    def __init__(self, path, in_channels=1, mode="train", max_timesteps=128, pretrain_words=0):
+class LRS2CTCDataset(Dataset):
+    def __init__(self, path, in_channels=1, mode="train", augmentations=False, estimate_pose=False, max_timesteps=155, pretrain_words=0):
         self.max_timesteps = max_timesteps
         self.pretrain = mode == "pretrain"
         self.in_channels = in_channels
+        self.estimate_pose = estimate_pose
         self.max_timesteps = max_timesteps
-        self.max_sentence_len = 100
         self.pretrain_words = pretrain_words
+        self.augmentation = augmentations if mode == 'train' or mode == "pretrain" else False
         self.file_paths, self.file_names, self.crops = self.build_file_list(path, mode)
-        # self.file_paths, self.file_names = self.file_paths[:100], self.file_names[:100]
-        self.char_list = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
-                          'U', 'V', 'W', 'X', 'Y', 'Z', '1', '2', '3', '4', '5', '6', '7', '8',  '9', '0', '<sos>', '<eos>', '<pad>', '\'']
-        self.int2char = dict(enumerate(self.char_list))
-        self.char2int = {char: index for index, char in self.int2char.items()}
+
+        # blank_char = "-"
+        numbers = "".join([str(i) for i in range(10)])
+        special_characters = " '"
+        self.characters = special_characters + ascii_lowercase + numbers
+        # self.characters = blank_char + special_characters + ascii_lowercase + numbers
+        int2char = dict(enumerate(self.characters))
+        self.char2int = {char: index for index, char in int2char.items()}
 
     def build_file_list(self, directory, mode):
         file_list, paths = [], []
@@ -66,11 +71,17 @@ class LRS2Dataset(Dataset):
             crops[i] = crop
 
         temporalVolume = torch.zeros(self.max_timesteps, self.in_channels, 64, 96)
+        if(self.augmentation):
+            augmentations = transforms.Compose([])  # TODO
+        else:
+            augmentations = transforms.Compose([])
+
         for i, frame in enumerate(frames):
             if self.in_channels == 1:
                 transform = transforms.Compose([
                     transforms.ToPILImage(),
                     Crop(crops[i]),
+                    augmentations,
                     transforms.Grayscale(num_output_channels=1),
                     transforms.ToTensor(),
                     transforms.Normalize([0.4161, ], [0.1688, ]),
@@ -79,6 +90,7 @@ class LRS2Dataset(Dataset):
                 transform = transforms.Compose([
                     transforms.ToPILImage(),
                     Crop(crops[i]),
+                    augmentations,
                     transforms.ToTensor(),
                     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
                 ])
@@ -114,7 +126,7 @@ class LRS2Dataset(Dataset):
                 sample_end = end
             content = content + " " + word
 
-        return content, sample_start, sample_end
+        return content.strip(), sample_start, sample_end
 
     def __getitem__(self, idx):
         file = self.file_names[idx]
@@ -142,22 +154,12 @@ class LRS2Dataset(Dataset):
         if self.pretrain:
             fps = info['video_fps']
             start_frame = int(start_sec * fps)
-            crop = frame_crops[start_frame: start_frame + num_frames]
+            crop = frame_crops[start_frame:start_frame + num_frames]
 
-        crop = crop[:self.max_timesteps]
         assert num_frames <= self.max_timesteps, f"Video too large with {num_frames} frames: {file_path}"
-        content = content.strip().upper()
+        content = content.lower()
 
         assert len(crop) == num_frames
         frames = self.build_tensor(video, crop)
-
-        encoded = self.encode(content)
-        return frames, num_frames, encoded
-
-    def encode(self, content):
-        encoded = [self.char2int[i] for i in content.replace(' ', '')] + [self.char2int['<eos>']]
-        if len(encoded) < self.max_sentence_len:
-            encoded += [self.char2int['<pad>'] for _ in range(self.max_sentence_len - len(encoded))]
-        else:
-            raise Exception('max text length too short')
-        return torch.Tensor(encoded)
+        encoded = [self.char2int[char] for char in content]
+        return frames, encoded, num_frames, idx
