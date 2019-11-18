@@ -15,15 +15,15 @@ from src.data.transforms import Crop
 
 
 class LRS2Dataset(Dataset):
-    def __init__(self, path, in_channels=1, mode="train", max_timesteps=128, max_text_len=100, pretrain_words=0):
+    def __init__(self, path, in_channels=1, mode="train", max_timesteps=128, skip_long_samples=True, max_text_len=100, pretrain_words=0):
         self.max_timesteps = max_timesteps
         self.pretrain = mode == "pretrain"
         self.in_channels = in_channels
         self.max_timesteps = max_timesteps
+        self.skip_long_samples = skip_long_samples
         self.max_text_len = max_text_len
         self.pretrain_words = pretrain_words
         self.file_paths, self.file_names, self.crops = self.build_file_list(path, mode)
-        # self.file_paths, self.file_names = self.file_paths[:100], self.file_names[:100]
         self.char_list = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
                           'U', 'V', 'W', 'X', 'Y', 'Z', '1', '2', '3', '4', '5', '6', '7', '8',  '9', '0', '<sos>', '<eos>', '<pad>', '\'']
         self.int2char = dict(enumerate(self.char_list))
@@ -32,6 +32,7 @@ class LRS2Dataset(Dataset):
     def build_file_list(self, directory, mode):
         file_list, paths = [], []
         crops = {}
+        skipped_samples = 0
 
         file = open(f"data/preprocess/lrs2/{mode}_crop.txt", "r")
         content = file.read()
@@ -53,10 +54,22 @@ class LRS2Dataset(Dataset):
             content = file.read()
             for file in content.splitlines():
                 file = file.split(" ")[0]
-                if file in crops:
+                if file not in crops:
+                    continue
+
+                if self.skip_long_samples:
+                    if crops[file].count("|") < self.max_timesteps:
+                        file_list.append(file)
+                        paths.append(f"{directory}/mvlrs_v1/main/{file}")
+                    else:
+                        skipped_samples += 1
+                        print(crops[file].count("|"))
+                else:
                     file_list.append(file)
                     paths.append(f"{directory}/mvlrs_v1/main/{file}")
 
+        if self.skip_long_samples:
+            print(f"Skipped {skipped_samples} too long samples")
         return paths, file_list, crops
 
     def build_tensor(self, frames, crops):
