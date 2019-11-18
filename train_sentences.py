@@ -63,12 +63,12 @@ if __name__ == "__main__":
     if args.pretrain:
         print("Pretraining model")
 
-        # curriculum with max_sequence_length, number_of_words, epochs
+        # curriculum with max_sequence_length, max_text_len, number_of_words, epochs
         curriculum = [
-            [64, 2, 10],
-            [96, 3, 10],
-            [128, 4, 5],
-            [164, 6, 5],
+            [64, 24, 2, 10],
+            [96, 32, 3, 10],
+            [120, 40, 4, 5],
+            [148, 48, 6, 5],
         ]
 
         for part in curriculum:
@@ -80,9 +80,9 @@ if __name__ == "__main__":
 
             trainer.checkpoint_callback = checkpoint_callback
             model.max_timesteps = part[0]
-            model.pretrain_words = part[1]
-            model.max_text_len = part[0]
-            trainer.num_max_epochs = part[2]
+            model.max_text_len = part[1]
+            model.pretrain_words = part[2]
+            trainer.num_max_epochs = part[3]
             trainer.val_percent = 0.0
             trainer.fit(model)
             logger.save_file(checkpoint_callback.last_checkpoint_path)
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     trainer.checkpoint_callback = checkpoint_callback
     model.pretrain = False
     model.max_timesteps = 128
-    model.max_text_len = 100
+    model.max_text_len = 84
     trainer.num_max_epochs = args.epochs
     trainer.fit(model)
 

@@ -66,13 +66,13 @@ class AttentionLRNet(Module):
         loss = 0
         results = []
         target_length = target_tensor.size(1)
-        for di in range(target_length):
+        for i in range(target_length):
             spell_output, spell_hidden, cell_state, context = self.spell(spell_input, spell_hidden, cell_state, watch_outputs, context)
             _, topi = spell_output.topk(1, dim=2)
-            spell_input = target_tensor[:, di].long().unsqueeze(1)
+            spell_input = target_tensor[:, i].long().unsqueeze(dim=1)
 
-            loss += self.criterion(spell_output.squeeze(1), target_tensor[:, di].long())
-            results.append(topi.cpu().squeeze(1))
+            loss += self.criterion(spell_output.squeeze(dim=1), target_tensor[:, i].long())
+            results.append(topi.cpu().squeeze(dim=1))
 
         results = torch.cat(results, dim=1)
         return loss, results

@@ -169,6 +169,8 @@ class LRS2Dataset(Dataset):
 
     def encode(self, content):
         encoded = [self.char2int[i] for i in content.replace(' ', '')] + [self.char2int['<eos>']]
-        assert len(encoded) < self.max_text_len, f"max_text_len too short. required {len(encoded)}"
+        if len(encoded) > self.max_text_len:
+            print(f"Max output length too short. Required {len(encoded)}")
+            encoded = encoded[:self.max_text_len]
         encoded += [self.char2int['<pad>'] for _ in range(self.max_text_len - len(encoded))]
         return torch.Tensor(encoded)
