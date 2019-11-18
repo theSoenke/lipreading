@@ -65,10 +65,10 @@ if __name__ == "__main__":
 
         # curriculum with max_sequence_length, number_of_words, epochs
         curriculum = [
-            [64, 2, 20],
-            [96, 3, 20],
-            [128, 4, 10],
-            [160, 6, 10],
+            [64, 2, 10],
+            [96, 3, 10],
+            [128, 4, 5],
+            [164, 6, 5],
         ]
 
         for part in curriculum:
