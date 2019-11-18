@@ -34,7 +34,12 @@ class LRS2Model(Module):
             nn.ReLU(True),
             nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
         )
-        self.resnet = ResNetModel(layers=hparams.resnet, output_dim=hidden_size, pretrained=hparams.pretrained)
+        self.resnet = ResNetModel(
+            layers=hparams.resnet,
+            output_dim=hidden_size,
+            pretrained=hparams.pretrained,
+            large_input=False,
+        )
         self.lstm = nn.LSTM(
             input_size=hidden_size,
             hidden_size=hidden_size,

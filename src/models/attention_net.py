@@ -35,7 +35,12 @@ class AttentionLRNet(Module):
             nn.ReLU(True),
             nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
         )
-        self.resnet = ResNetModel(layers=18, output_dim=512, pretrained=True)
+        self.resnet = ResNetModel(
+            layers=hparams.resnet,
+            output_dim=512,
+            pretrained=True,
+            large_input=False
+        )
         num_characters = len(dataset.char_list)
         self.spell = Spell(3, 512, num_characters)
         self.device = torch.device("cuda:0")
@@ -46,7 +51,7 @@ class AttentionLRNet(Module):
             hidden_size=512,
             num_layers=3,
             batch_first=True,
-            # bidirectional=True,
+            bidirectional=False,
         )
 
         self.best_val_cer = 1.0
@@ -177,7 +182,7 @@ class AttentionLRNet(Module):
 
 class Spell(nn.Module):
     def __init__(self, num_layers, hidden_size, output_size):
-        super(Spell, self).__init__()
+        super().__init__()
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.num_layers = num_layers
@@ -200,7 +205,7 @@ class Spell(nn.Module):
         concatenated = torch.cat([input, context], dim=2)
         output, (hidden_state, cell_state) = self.lstm(concatenated, (hidden_state, cell_state))
         context = self.attention(hidden_state[-1], watch_outputs)
-        output = self.mlp(torch.cat([output, context], dim=2).squeeze(1)).unsqueeze(1)
+        output = self.mlp(torch.cat([output, context], dim=2).squeeze(dim=1)).unsqueeze(dim=1)
 
         return output, hidden_state, cell_state, context
 
@@ -219,8 +224,8 @@ class Attention(nn.Module):
         prev_hidden_state = prev_hidden_state.repeat(sequence_length, 1, 1).transpose(0, 1)
 
         concatenated = torch.cat([prev_hidden_state, annotations], dim=2)
-        attn_energies = self.dense(concatenated).squeeze(2)
-        alpha = F.softmax(attn_energies, dim=1).unsqueeze(1)
+        attn_energies = self.dense(concatenated).squeeze(dim=2)
+        alpha = F.softmax(attn_energies, dim=1).unsqueeze(dim=1)
         context = alpha.bmm(annotations)
 
         return context

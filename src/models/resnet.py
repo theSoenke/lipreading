@@ -41,15 +41,17 @@ class BasicBlock(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, block, layers, num_classes=1000, zero_init_residual=True):
+    def __init__(self, block, layers, num_classes=1000, zero_init_residual=True, large_input=True):
         super().__init__()
         self.inplanes = 64
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
-        # self.avgpool = nn.AvgPool2d(4, stride=1)
-        self.avgpool = nn.AvgPool2d(2)
+        if large_input:
+            self.avgpool = nn.AvgPool2d(4, stride=1)
+        else:
+            self.avgpool = nn.AvgPool2d(2)
         self.fc = nn.Linear(512 * block.expansion, num_classes)
         self.bn2 = nn.BatchNorm1d(num_classes)
 
@@ -114,16 +116,15 @@ def resnet34(pretrained=False, **kwargs):
 
 
 class ResNetModel(nn.Module):
-    def __init__(self, layers=18, output_dim=256, pretrained=False):
+    def __init__(self, layers=18, output_dim=256, pretrained=False, large_input=True):
         super().__init__()
         self.num_classes = output_dim
         if layers == 18:
-            self.resnet = resnet18(pretrained=pretrained, num_classes=self.num_classes)
+            self.resnet = resnet18(pretrained=pretrained, num_classes=self.num_classes, large_input=large_input)
         elif layers == 34:
-            self.resnet = resnet34(pretrained=pretrained, num_classes=self.num_classes)
+            self.resnet = resnet34(pretrained=pretrained, num_classes=self.num_classes, large_input=large_input)
         else:
             raise NotImplementedError("number of resnet layers not supported")
-
 
     def forward(self, x):
         transposed = x.transpose(1, 2).contiguous()
