@@ -8,6 +8,7 @@ from pytorch_trainer import (EarlyStopping, ModelCheckpoint, Trainer,
 from src.checkpoint import load_checkpoint
 from src.models.attention_net import AttentionLRNet
 from src.models.lrs2_model import LRS2Model
+from src.models.wlsnet import WLSNet
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -15,7 +16,7 @@ if __name__ == "__main__":
     parser.add_argument('--model', default="attention")
     parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints/lrs2')
     parser.add_argument("--checkpoint", type=str)
-    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--batch_size", type=int, default=24)
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
@@ -31,6 +32,12 @@ if __name__ == "__main__":
 
     if args.model == 'attention':
         model = AttentionLRNet(
+            hparams=args,
+            in_channels=1,
+            pretrain=args.pretrain,
+        )
+    elif args.model == 'wlsnet':
+        model = WLSNet(
             hparams=args,
             in_channels=1,
             pretrain=args.pretrain,
@@ -53,7 +60,7 @@ if __name__ == "__main__":
         logger=logger,
         gpu_id=0,
         num_max_epochs=args.epochs,
-        use_amp=True,
+        use_amp=False,
     )
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Trainable parameters: {trainable_params}")
@@ -107,8 +114,8 @@ if __name__ == "__main__":
     trainer.val_percent = 1.0
     trainer.checkpoint_callback = checkpoint_callback
     model.pretrain = False
-    model.max_timesteps = 128
-    model.max_text_len = 84
+    model.max_timesteps = 100
+    model.max_text_len = 100
     trainer.num_max_epochs = args.epochs
     trainer.fit(model)
 
