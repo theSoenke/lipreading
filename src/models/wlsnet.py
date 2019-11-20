@@ -37,7 +37,7 @@ class WLSNet(Module):
         self.best_val_cer = 1.0
         self.current_epoch = 0
 
-    def forward(self, x, lengths, target_tensor):
+    def forward(self, x, lengths, target_tensor, enable_teacher=True):
         watch_outputs, watch_state = self.watch(x, lengths)
         decoder_input = torch.tensor([[get_charSet().get_index_of('<sos>')]]).repeat(watch_outputs.size(0), 1).to(self.device)
         spell_hidden = watch_state
@@ -51,7 +51,7 @@ class WLSNet(Module):
             use_teacher_forcing = True if random.random() < self.teacher_forcing_ratio else False
             decoder_output, spell_hidden, cell_state, context = self.spell(decoder_input, spell_hidden, cell_state, watch_outputs, context)
             _, topi = decoder_output.topk(1, dim=2)
-            if use_teacher_forcing:
+            if enable_teacher and use_teacher_forcing:
                 decoder_input = target_tensor[:, di].long().unsqueeze(dim=1)
             else:
                 decoder_input = topi.squeeze(dim=1).detach()
@@ -95,7 +95,7 @@ class WLSNet(Module):
 
     def validation_step(self, batch, batch_num):
         input_tensor, lengths, target_tensor = batch
-        results, loss = self.forward(input_tensor, lengths, target_tensor)
+        results, loss = self.forward(input_tensor, lengths, target_tensor, enable_teacher=False)
         cer = self.decode(results, target_tensor, batch_num, log_interval=10, log=True)
 
         return {

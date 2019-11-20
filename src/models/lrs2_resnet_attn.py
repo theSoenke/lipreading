@@ -60,7 +60,7 @@ class LRS2ResnetAttn(Module):
         self.best_val_cer = 1.0
         self.current_epoch = 0
 
-    def forward(self, x, lengths, target_tensor):
+    def forward(self, x, lengths, target_tensor, enable_teacher=True):
         x = self.frontend(x)
         x = self.resnet(x)
         x = pack_padded_sequence(x, lengths, enforce_sorted=False, batch_first=True)
@@ -79,7 +79,7 @@ class LRS2ResnetAttn(Module):
             use_teacher_forcing = True if random.random() < self.teacher_forcing_ratio else False
             decoder_output, spell_hidden, cell_state, context = self.spell(decoder_input, spell_hidden, cell_state, watch_outputs, context)
             _, topi = decoder_output.topk(1, dim=2)
-            if use_teacher_forcing:
+            if enable_teacher and use_teacher_forcing:
                 decoder_input = target_tensor[:, i].long().unsqueeze(dim=1)
             else:
                 decoder_input = topi.squeeze(dim=1).detach()
@@ -121,7 +121,7 @@ class LRS2ResnetAttn(Module):
 
     def validation_step(self, batch, batch_num):
         input_tensor, lengths, target_tensor = batch
-        loss, results = self.forward(input_tensor, lengths, target_tensor)
+        loss, results = self.forward(input_tensor, lengths, target_tensor, enable_teacher=False)
         cer = self.decode(results, target_tensor, batch_num, log_interval=10, log=True)
 
         self.teacher_forcing_ratio = 1.0 - (self.current_epoch / self.hparams.epochs)
