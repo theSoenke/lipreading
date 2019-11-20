@@ -58,7 +58,6 @@ class LRS2ResnetAttn(Module):
         )
 
         self.best_val_cer = 1.0
-        self.current_epoch = 0
 
     def forward(self, x, lengths, target_tensor, enable_teacher=True):
         x = self.frontend(x)
@@ -149,15 +148,15 @@ class LRS2ResnetAttn(Module):
             'best_val_cer': self.best_val_cer
         }
 
-        self.teacher_forcing_ratio = 1.0 - (self.current_epoch / self.hparams.epochs)
-        print(f"Use teacher forcing ratio: {self.teacher_forcing_ratio}")
-        self.current_epoch += 1
-
         return {
             'val_loss': loss,
             'val_cer': cer,
             'log': logs,
         }
+
+    def on_epoch_start(self, epoch):
+        self.teacher_forcing_ratio = 1.0 - (epoch / self.hparams.epochs)
+        print(f"Use teacher forcing ratio: {self.teacher_forcing_ratio}")
 
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)

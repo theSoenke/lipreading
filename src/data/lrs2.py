@@ -111,7 +111,7 @@ class LRS2Dataset(Dataset):
             start, stop = float(start), float(stop)
             words.append([word, start, stop])
 
-        num_words = min(random.randint(1, self.pretrain_words), len(words))
+        num_words = min(random.randint(self.pretrain_words - 1, self.pretrain_words), len(words))
         word_start = random.randint(0, len(words) - num_words)
         word_end = word_start + num_words
 
