@@ -90,7 +90,7 @@ class LRS2ResnetAttn(Module):
         return loss, results
 
     def decode(self, results, target_tensor, batch_num, log_interval=1, log=False):
-        cer = 0
+        cer, wer = 0, 0
         target_length = results.size(1)
         batch_size = results.size(0)
         for batch in range(batch_size):
@@ -106,30 +106,29 @@ class LRS2ResnetAttn(Module):
             output = re.sub(' +', ' ', output)
             if log and batch_num % log_interval == 0:
                 print([output, label])
-            dist = editdistance.eval(output, label)
-            cer += dist / max(len(output), len(label))
+            cer += editdistance.eval(output, label) / max(len(output), len(label))
+            output_words, label_words = output.split(" "), label.split(" ")
+            wer += editdistance(output_words, label_words) / max(len(output_words), len(label_words))
 
-        return cer / batch_size
+        return cer / batch_size, wer / batch_size
 
     def training_step(self, batch, batch_num):
         input_tensor, lengths, target_tensor = batch
         loss, results = self.forward(input_tensor, lengths, target_tensor)
-        cer = self.decode(results, target_tensor, batch_num, log_interval=200, log=True)
+        cer, wer = self.decode(results, target_tensor, batch_num, log_interval=200, log=True)
 
-        logs = {'train_loss': loss, 'train_cer': cer}
-        return {'loss': loss, 'cer': cer, 'log': logs}
+        logs = {'train_loss': loss, 'train_cer': cer, 'train_wer': wer}
+        return {'loss': loss, 'cer': cer, teacher_ratio: self.teacher_forcing_ratio, 'log': logs}
 
     def validation_step(self, batch, batch_num):
         input_tensor, lengths, target_tensor = batch
         loss, results = self.forward(input_tensor, lengths, target_tensor, enable_teacher=False)
-        cer = self.decode(results, target_tensor, batch_num, log_interval=10, log=True)
-
-        self.teacher_forcing_ratio = 1.0 - (self.current_epoch / self.hparams.epochs)
-        self.current_epoch += 1
+        cer, wer = self.decode(results, target_tensor, batch_num, log_interval=10, log=True)
 
         return {
             'val_loss': loss,
             'val_cer': cer,
+            'val_wer': wer,
         }
 
     def validation_end(self, outputs):
@@ -137,16 +136,22 @@ class LRS2ResnetAttn(Module):
             print("Skip validation for pretraining")
             return {}
 
-        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-        avg_cer = np.mean([x['val_cer'] for x in outputs])
+        loss = torch.stack([x['val_loss'] for x in outputs]).mean()
+        cer = np.mean([x['val_cer'] for x in outputs])
+        wer = np.mean([x['val_wer'] for x in outputs])
 
-        if self.best_val_cer > avg_cer:
-            self.best_val_cer = avg_cer
+        if self.best_val_cer > cer:
+            self.best_val_cer = cer
         logs = {
-            'val_loss': avg_loss,
-            'val_cer': avg_cer,
+            'val_loss': loss,
+            'val_cer': cer,
+            'val_wer': wer,
             'best_val_cer': self.best_val_cer
         }
+
+        self.teacher_forcing_ratio = 1.0 - (self.current_epoch / self.hparams.epochs)
+        print(f"Use teacher forcing ratio: {self.teacher_forcing_ratio}")
+        self.current_epoch += 1
 
         return {
             'val_loss': avg_loss,
@@ -173,7 +178,8 @@ class LRS2ResnetAttn(Module):
         train_loader = DataLoader(
             train_data,
             shuffle=True,
-            batch_size=self.hparams.batch_size, num_workers=self.hparams.workers,
+            batch_size=self.hparams.batch_size,
+            num_workers=self.hparams.workers,
             pin_memory=True,
         )
         return train_loader
@@ -187,7 +193,8 @@ class LRS2ResnetAttn(Module):
         )
         val_loader = DataLoader(
             val_data, shuffle=False,
-            batch_size=self.hparams.batch_size * 2, num_workers=self.hparams.workers,
+            batch_size=self.hparams.batch_size * 2,
+            num_workers=self.hparams.workers,
         )
         return val_loader
 
