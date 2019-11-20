@@ -10,17 +10,17 @@ from src.data.charset import get_charSet, init_charSet
 
 
 class LRS2Dataset(Dataset):
-    def __init__(self, path, mode, max_timesteps=100, txtMaxLen=100):
+    def __init__(self, path, mode, max_timesteps=100, max_text_len=100):
         self.file_paths = self.build_file_list(path, mode)
         self.max_timesteps = max_timesteps
-        self.txtMaxLen = txtMaxLen
+        self.max_text_len = max_text_len
 
     def __len__(self):
         return len(self.file_paths)
 
     def __getitem__(self, idx):
         video, length = self.videoProcess(self.file_paths[idx])
-        return video, length, txtProcess(self.file_paths[idx] + ".txt", self.txtMaxLen)
+        return video, length, txtProcess(self.file_paths[idx] + ".txt", self.max_text_len)
 
     def build_file_list(self, directory, mode):
         paths = []
@@ -60,13 +60,13 @@ class LRS2Dataset(Dataset):
         return frames, frames.size(0)
 
 
-def txtProcess(dir, txtMaxLen):
+def txtProcess(dir, max_text_len):
     encoded = []
     with open(dir) as f:
         encoded = [get_charSet().get_index_of(i) for i in f.readline().split(':')[1].strip()] + [get_charSet().get_index_of('<eos>')]
-        if len(encoded) > txtMaxLen:
+        if len(encoded) > max_text_len:
             print(f'too short txt max length. Required: {len(encoded)}')
-            encoded = encoded[:txtMaxLen]
+            encoded = encoded[:max_text_len]
         else:
-            encoded += [get_charSet().get_index_of('<pad>') for _ in range(txtMaxLen - len(encoded))]
+            encoded += [get_charSet().get_index_of('<pad>') for _ in range(max_text_len - len(encoded))]
     return torch.Tensor(encoded)

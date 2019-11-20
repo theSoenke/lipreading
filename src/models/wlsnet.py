@@ -131,7 +131,7 @@ class WLSNet(Module):
         train_data = LRS2Dataset(
             path=self.hparams.data,
             max_timesteps=self.max_timesteps,
-            txtMaxLen=self.max_text_len,
+            max_text_len=self.max_text_len,
             mode='train',
         )
         train_loader = DataLoader(
@@ -146,7 +146,7 @@ class WLSNet(Module):
         val_data = LRS2Dataset(
             path=self.hparams.data,
             max_timesteps=self.max_timesteps,
-            txtMaxLen=self.max_text_len,
+            max_text_len=self.max_text_len,
             mode='val',
         )
         val_loader = DataLoader(
