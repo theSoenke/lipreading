@@ -26,7 +26,7 @@ class WLSNet(Module):
         self.pretrain = pretrain
         self.max_timesteps = 155
         self.max_text_len = 100
-        self.teacher_forcing_ratio = hparams.teacher_forcing
+        self.teacher_forcing_ratio = 1.0
 
         init_charSet("en")
         self.watch = Watch(3, 512, 512)
@@ -35,6 +35,7 @@ class WLSNet(Module):
         self.criterion = nn.CrossEntropyLoss()
 
         self.best_val_cer = 1.0
+        self.current_epoch = 0
 
     def forward(self, x, lengths, target_tensor):
         watch_outputs, watch_state = self.watch(x, lengths)
@@ -113,6 +114,9 @@ class WLSNet(Module):
             'val_cer': avg_cer,
             'best_val_cer': self.best_val_cer
         }
+
+        self.teacher_forcing_ratio = 1.0 - (self.current_epoch / self.hparams.epochs)
+        self.current_epoch += 1
 
         return {
             'val_loss': avg_loss,
