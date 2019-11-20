@@ -47,7 +47,7 @@ class LRS2ResnetAttn(Module):
         num_characters = len(dataset.char_list)
         self.spell = Spell(3, 512, num_characters)
         self.device = torch.device("cuda:0")
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss(ignore_index=self.char2int['<pad>'])
 
         self.lstm = nn.LSTM(
             input_size=512,
@@ -68,7 +68,7 @@ class LRS2ResnetAttn(Module):
         watch_outputs, _ = pad_packed_sequence(x, batch_first=True)
         spell_hidden = states[0]
 
-        decoder_input = torch.tensor([self.char2int('<sos>')]).repeat(watch_outputs.size(0), 1).to(self.device)
+        decoder_input = torch.tensor([self.char2int['<sos>']]).repeat(watch_outputs.size(0), 1).to(self.device)
         cell_state = torch.zeros_like(spell_hidden).to(self.device)
         context = torch.zeros(watch_outputs.size(0), 1, spell_hidden.size(2)).to(self.device)
 
@@ -101,14 +101,14 @@ class LRS2ResnetAttn(Module):
                 label += self.int2char[int(target_tensor[batch, index])]
             label = label.replace('<pad>', ' ').replace('<eos>', '@')
             label = label[:label.find("@")]
-            output = output.replace('<eos>', '@').replace('<pad>', ' ').replace('<sos>', '&')
+            output = output.replace('<eos>', '@').replace('<pad>', '&').replace('<sos>', '&')
             output = output[:output.find('@')].strip()
             output = re.sub(' +', ' ', output)
             if log and batch_num % log_interval == 0:
                 print([output, label])
             cer += editdistance.eval(output, label) / max(len(output), len(label))
             output_words, label_words = output.split(" "), label.split(" ")
-            wer += editdistance(output_words, label_words) / max(len(output_words), len(label_words))
+            wer += editdistance.eval(output_words, label_words) / max(len(output_words), len(label_words))
 
         return cer / batch_size, wer / batch_size
 
@@ -118,7 +118,7 @@ class LRS2ResnetAttn(Module):
         cer, wer = self.decode(results, target_tensor, batch_num, log_interval=200, log=True)
 
         logs = {'train_loss': loss, 'train_cer': cer, 'train_wer': wer}
-        return {'loss': loss, 'cer': cer, teacher_ratio: self.teacher_forcing_ratio, 'log': logs}
+        return {'loss': loss, 'cer': cer, 'teacher_ratio': self.teacher_forcing_ratio, 'log': logs}
 
     def validation_step(self, batch, batch_num):
         input_tensor, lengths, target_tensor = batch
@@ -154,8 +154,8 @@ class LRS2ResnetAttn(Module):
         self.current_epoch += 1
 
         return {
-            'val_loss': avg_loss,
-            'val_cer': avg_cer,
+            'val_loss': loss,
+            'val_cer': cer,
             'log': logs,
         }
 

@@ -25,15 +25,9 @@ class LRS2Dataset(Dataset):
         self.pretrain_words = pretrain_words
         self.file_paths, self.file_names, self.crops = self.build_file_list(path, mode)
         self.char_list = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
-                          'U', 'V', 'W', 'X', 'Y', 'Z', '1', '2', '3', '4', '5', '6', '7', '8',  '9', '0', '<sos>', '<eos>', '<pad>', '\'']
+                          'U', 'V', 'W', 'X', 'Y', 'Z', '1', '2', '3', '4', '5', '6', '7', '8',  '9', '0', '<sos>', '<eos>', '<pad>', '\'', ' ']
         self.int2char = dict(enumerate(self.char_list))
-        self.char_mapping = {char: index for index, char in self.int2char.items()}
-
-    def char2int(self, char):
-        if char == ' ':
-            char = '<pad>'
-
-        return self.char_mapping[char]
+        self.char2int = {char: index for index, char in self.int2char.items()}
 
     def build_file_list(self, directory, mode):
         file_list, paths = [], []
@@ -173,9 +167,9 @@ class LRS2Dataset(Dataset):
         return frames, num_frames, encoded
 
     def encode(self, content):
-        encoded = [self.char2int(i) for i in content] + [self.char2int('<eos>')]
+        encoded = [self.char2int[c] for c in content] + [self.char2int['<eos>']]
         if len(encoded) > self.max_text_len:
             print(f"Max output length too short. Required {len(encoded)}")
             encoded = encoded[:self.max_text_len]
-        encoded += [self.char2int('<pad>') for _ in range(self.max_text_len - len(encoded))]
+        encoded += [self.char2int['<pad>'] for _ in range(self.max_text_len - len(encoded))]
         return torch.Tensor(encoded)
