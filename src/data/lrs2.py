@@ -15,7 +15,7 @@ from src.data.transforms import Crop
 
 
 class LRS2Dataset(Dataset):
-    def __init__(self, path, in_channels=1, mode="train", max_timesteps=128, skip_long_samples=True, max_text_len=100, pretrain_words=0):
+    def __init__(self, path, in_channels=1, mode="train", max_timesteps=100, skip_long_samples=True, max_text_len=200, pretrain_words=0):
         self.max_timesteps = max_timesteps
         self.pretrain = mode == "pretrain"
         self.in_channels = in_channels
@@ -27,7 +27,13 @@ class LRS2Dataset(Dataset):
         self.char_list = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
                           'U', 'V', 'W', 'X', 'Y', 'Z', '1', '2', '3', '4', '5', '6', '7', '8',  '9', '0', '<sos>', '<eos>', '<pad>', '\'']
         self.int2char = dict(enumerate(self.char_list))
-        self.char2int = {char: index for index, char in self.int2char.items()}
+        self.char_mapping = {char: index for index, char in self.int2char.items()}
+
+    def char2int(self, char):
+        if char == ' ':
+            char = '<pad>'
+
+        return self.char_mapping[char]
 
     def build_file_list(self, directory, mode):
         file_list, paths = [], []
@@ -63,7 +69,6 @@ class LRS2Dataset(Dataset):
                         paths.append(f"{directory}/mvlrs_v1/main/{file}")
                     else:
                         skipped_samples += 1
-                        print(crops[file].count("|"))
                 else:
                     file_list.append(file)
                     paths.append(f"{directory}/mvlrs_v1/main/{file}")
@@ -155,7 +160,7 @@ class LRS2Dataset(Dataset):
         if self.pretrain:
             fps = info['video_fps']
             start_frame = int(start_sec * fps)
-            crop = frame_crops[start_frame: start_frame + num_frames]
+            crop = frame_crops[start_frame:start_frame + num_frames]
 
         crop = crop[:self.max_timesteps]
         assert num_frames <= self.max_timesteps, f"Video too large with {num_frames} frames: {file_path}"
@@ -168,9 +173,9 @@ class LRS2Dataset(Dataset):
         return frames, num_frames, encoded
 
     def encode(self, content):
-        encoded = [self.char2int[i] for i in content.replace(' ', '')] + [self.char2int['<eos>']]
+        encoded = [self.char2int(i) for i in content] + [self.char2int('<eos>')]
         if len(encoded) > self.max_text_len:
             print(f"Max output length too short. Required {len(encoded)}")
             encoded = encoded[:self.max_text_len]
-        encoded += [self.char2int['<pad>'] for _ in range(self.max_text_len - len(encoded))]
+        encoded += [self.char2int('<pad>') for _ in range(self.max_text_len - len(encoded))]
         return torch.Tensor(encoded)

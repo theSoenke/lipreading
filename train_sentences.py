@@ -6,8 +6,8 @@ from pytorch_trainer import (EarlyStopping, ModelCheckpoint, Trainer,
                              WandbLogger)
 
 from src.checkpoint import load_checkpoint
-from src.models.attention_net import AttentionLRNet
 from src.models.lrs2_model import LRS2Model
+from src.models.lrs2_resnet_attn import LRS2ResnetAttn
 from src.models.wlsnet import WLSNet
 
 if __name__ == "__main__":
@@ -17,7 +17,8 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints/lrs2')
     parser.add_argument("--checkpoint", type=str)
     parser.add_argument("--batch_size", type=int, default=24)
-    parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--teacher_forcing", type=float, default=0.5)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
     parser.add_argument("--workers", type=int, default=None)
@@ -30,8 +31,8 @@ if __name__ == "__main__":
     args.workers = psutil.cpu_count(logical=False) if args.workers == None else args.workers
     args.pretrained = False if args.checkpoint != None else args.pretrained
 
-    if args.model == 'attention':
-        model = AttentionLRNet(
+    if args.model == 'resnet':
+        model = LRS2ResnetAttn(
             hparams=args,
             in_channels=1,
             pretrain=args.pretrain,

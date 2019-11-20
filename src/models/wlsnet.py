@@ -1,4 +1,5 @@
 import os
+import random
 import re
 
 import editdistance
@@ -25,6 +26,7 @@ class WLSNet(Module):
         self.pretrain = pretrain
         self.max_timesteps = 155
         self.max_text_len = 100
+        self.teacher_forcing_ratio = hparams.teacher_forcing
 
         init_charSet("en")
         self.watch = Watch(3, 512, 512)
@@ -35,25 +37,25 @@ class WLSNet(Module):
         self.best_val_cer = 1.0
 
     def forward(self, x, lengths, target_tensor):
-        results = []
-        target_length = target_tensor.size(1)
-        loss = 0
-        cer = 0
-
         watch_outputs, watch_state = self.watch(x, lengths)
-
-        spell_input = torch.tensor([[get_charSet().get_index_of('<sos>')]]).repeat(watch_outputs.size(0), 1).to(self.device)
+        decoder_input = torch.tensor([[get_charSet().get_index_of('<sos>')]]).repeat(watch_outputs.size(0), 1).to(self.device)
         spell_hidden = watch_state
         cell_state = torch.zeros_like(spell_hidden).to(self.device)
         context = torch.zeros(watch_outputs.size(0), 1, spell_hidden.size(2)).to(self.device)
 
+        loss = 0
+        results = []
         target_length = target_tensor.size(1)
         for di in range(target_length):
-            spell_output, spell_hidden, cell_state, context = self.spell(spell_input, spell_hidden, cell_state, watch_outputs, context)
-            _, topi = spell_output.topk(1, dim=2)
-            spell_input = target_tensor[:, di].long().unsqueeze(1)
+            use_teacher_forcing = True if random.random() < self.teacher_forcing_ratio else False
+            decoder_output, spell_hidden, cell_state, context = self.spell(decoder_input, spell_hidden, cell_state, watch_outputs, context)
+            _, topi = decoder_output.topk(1, dim=2)
+            if use_teacher_forcing:
+                decoder_input = target_tensor[:, di].long().unsqueeze(dim=1)
+            else:
+                decoder_input = topi.squeeze(dim=1).detach()
 
-            loss += self.criterion(spell_output.squeeze(1), target_tensor[:, di].long())
+            loss += self.criterion(decoder_output.squeeze(1), target_tensor[:, di].long())
             results.append(topi.cpu().squeeze(1))
 
         results = torch.cat(results, dim=1)
@@ -85,8 +87,7 @@ class WLSNet(Module):
         input_tensor, length_tensor, target_tensor = batch
         results, loss = self.forward(input_tensor, length_tensor, target_tensor)
 
-        target_length = target_tensor.size(1)
-        cer = self.decode(results, target_tensor, batch_num, log_interval=100, log=True)
+        cer = self.decode(results, target_tensor, batch_num, log_interval=200, log=True)
 
         logs = {'train_loss': loss, 'train_cer': cer}
         return {'loss': loss, 'cer': cer, 'log': logs}
@@ -94,7 +95,7 @@ class WLSNet(Module):
     def validation_step(self, batch, batch_num):
         input_tensor, lengths, target_tensor = batch
         results, loss = self.forward(input_tensor, lengths, target_tensor)
-        cer = self.decode(results, target_tensor, batch_num, log=True)
+        cer = self.decode(results, target_tensor, batch_num, log_interval=10, log=True)
 
         return {
             'val_loss': loss,

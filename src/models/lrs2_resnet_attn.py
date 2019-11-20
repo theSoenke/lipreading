@@ -1,4 +1,6 @@
 import os
+import random
+import re
 
 import editdistance
 import numpy as np
@@ -15,7 +17,7 @@ from src.data.lrs2 import LRS2Dataset
 from src.models.resnet import ResNetModel
 
 
-class AttentionLRNet(Module):
+class LRS2ResnetAttn(Module):
     def __init__(self, hparams, in_channels=1, pretrain=False):
         super().__init__()
         self.hparams = hparams
@@ -24,6 +26,7 @@ class AttentionLRNet(Module):
         self.max_timesteps = 155
         self.max_text_len = 100
         self.pretrain_words = 0
+        self.teacher_forcing_ratio = hparams.teacher_forcing
 
         dataset = self.train_dataloader().dataset
         self.int2char = dataset.int2char
@@ -44,7 +47,7 @@ class AttentionLRNet(Module):
         num_characters = len(dataset.char_list)
         self.spell = Spell(3, 512, num_characters)
         self.device = torch.device("cuda:0")
-        self.criterion = nn.CrossEntropyLoss(ignore_index=self.char2int['<pad>'])
+        self.criterion = nn.CrossEntropyLoss()
 
         self.lstm = nn.LSTM(
             input_size=512,
@@ -64,7 +67,7 @@ class AttentionLRNet(Module):
         watch_outputs, _ = pad_packed_sequence(x, batch_first=True)
         spell_hidden = states[0]
 
-        spell_input = torch.tensor([self.char2int['<sos>']]).repeat(watch_outputs.size(0), 1).to(self.device)
+        decoder_input = torch.tensor([self.char2int('<sos>')]).repeat(watch_outputs.size(0), 1).to(self.device)
         cell_state = torch.zeros_like(spell_hidden).to(self.device)
         context = torch.zeros(watch_outputs.size(0), 1, spell_hidden.size(2)).to(self.device)
 
@@ -72,11 +75,14 @@ class AttentionLRNet(Module):
         results = []
         target_length = target_tensor.size(1)
         for i in range(target_length):
-            spell_output, spell_hidden, cell_state, context = self.spell(spell_input, spell_hidden, cell_state, watch_outputs, context)
-            _, topi = spell_output.topk(1, dim=2)
-            spell_input = target_tensor[:, i].long().unsqueeze(dim=1)
-
-            loss += self.criterion(spell_output.squeeze(dim=1), target_tensor[:, i].long())
+            use_teacher_forcing = True if random.random() < self.teacher_forcing_ratio else False
+            decoder_output, spell_hidden, cell_state, context = self.spell(decoder_input, spell_hidden, cell_state, watch_outputs, context)
+            _, topi = decoder_output.topk(1, dim=2)
+            if use_teacher_forcing:
+                decoder_input = target_tensor[:, i].long().unsqueeze(dim=1)
+            else:
+                decoder_input = topi.squeeze(dim=1).detach()
+            loss += self.criterion(decoder_output.squeeze(dim=1), target_tensor[:, i].long())
             results.append(topi.cpu().squeeze(dim=1))
 
         results = torch.cat(results, dim=1)
@@ -92,9 +98,11 @@ class AttentionLRNet(Module):
             for index in range(target_length):
                 output += self.int2char[int(results[batch, index])]
                 label += self.int2char[int(target_tensor[batch, index])]
-            label = label.replace('<pad>', '').replace('<eos>', '@')[:-1]
-            output = output.replace('<eos>', '@').replace('<pad>', '$').replace('<sos>', '&')
-            output = output[:output.find('@')]
+            label = label.replace('<pad>', ' ').replace('<eos>', '@')
+            label = label[:label.find("@")]
+            output = output.replace('<eos>', '@').replace('<pad>', ' ').replace('<sos>', '&')
+            output = output[:output.find('@')].strip()
+            output = re.sub(' +', ' ', output)
             if log and batch_num % log_interval == 0:
                 print([output, label])
             dist = editdistance.eval(output, label)
