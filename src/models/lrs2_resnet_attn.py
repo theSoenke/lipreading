@@ -155,8 +155,9 @@ class LRS2ResnetAttn(Module):
         }
 
     def on_epoch_start(self, epoch):
-        self.teacher_forcing_ratio = 1.0 - (epoch / self.hparams.epochs)
-        print(f"Use teacher forcing ratio: {self.teacher_forcing_ratio}")
+        pass
+        # self.teacher_forcing_ratio = 1.0 - (epoch / self.hparams.epochs)
+        # print(f"Use teacher forcing ratio: {self.teacher_forcing_ratio}")
 
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
