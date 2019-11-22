@@ -133,7 +133,7 @@ class LRS2ResnetAttn(Module):
     def validation_end(self, outputs):
         if self.pretrain:
             print("Skip during pretrain")
-            return
+            return {}
 
         cer = np.mean([x['val_cer'] for x in outputs])
         wer = np.mean([x['val_wer'] for x in outputs])

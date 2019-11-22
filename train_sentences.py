@@ -68,7 +68,6 @@ if __name__ == "__main__":
         model.pretrain = False
         logs = trainer.validate(model, checkpoint=args.checkpoint)
         logger.log_metrics(logs)
-        print(f"Initial validation: wer: {logs['val_wer']:.4f}, cer: {logs['val_cer']:.4f}")
 
     if args.pretrain:
         model.pretrain = True
