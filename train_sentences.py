@@ -5,7 +5,6 @@ import torch
 from pytorch_trainer import (EarlyStopping, ModelCheckpoint, Trainer,
                              WandbLogger)
 
-from src.checkpoint import load_checkpoint_mismatch
 from src.models.lrs2_model import LRS2Model
 from src.models.lrs2_resnet_attn import LRS2ResnetAttn
 from src.models.wlsnet import WLSNet
@@ -67,8 +66,7 @@ if __name__ == "__main__":
 
     if args.checkpoint is not None:
         model.pretrain = False
-        load_checkpoint_mismatch(args.checkpoint, model, verbose=True)
-        logs = trainer.validate(model)
+        logs = trainer.validate(model, checkpoint=args.checkpoint)
         logger.log_metrics(logs)
         print(f"Initial validation: wer: {logs['val_wer']:.4f}, cer: {logs['val_cer']:.4f}")
 
