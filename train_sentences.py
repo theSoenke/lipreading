@@ -16,7 +16,7 @@ if __name__ == "__main__":
     parser.add_argument('--model', default="resnet")
     parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints/lrs2')
     parser.add_argument("--checkpoint", type=str)
-    parser.add_argument("--batch_size", type=int, default=24)
+    parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
@@ -68,22 +68,29 @@ if __name__ == "__main__":
     logger.log('parameters', trainable_params)
     logger.log_hyperparams(args)
 
+    if args.checkpoint is not None:
+        load_checkpoint_mismatch(args.checkpoint, model)
+        logs = trainer.validate(model)
+        logger.log_metrics(logs)
+        print(f"Initial validation: wer: {logs['val_wer']:.4f}, cer: {logs['val_cer']:.4f}")
+
     if args.pretrain:
         print("Pretraining model")
 
         # curriculum with max_sequence_length, max_text_len, number_of_words, epochs
         curriculum = [
-            [64, 32, 2, 10],
-            [96, 40, 3, 10],
-            [120, 48, 4, 5],
-            [148, 56, 6, 5],
+            [64, 32, 2, 15],
+            [96, 40, 3, 15],
+            [120, 48, 4, 10],
+            [132, 56, 6, 5],
+            [148, 64, 8, 5],
         ]
 
         for part in curriculum:
             checkpoint_callback = ModelCheckpoint(
                 directory=args.checkpoint_dir,
-                period=part[2],
-                prefix=f"lrs2_pretrain_{part[1]}",
+                period=part[3],
+                prefix=f"lrs2_pretrain_{part[2]}",
             )
 
             trainer.checkpoint_callback = checkpoint_callback
@@ -112,7 +119,6 @@ if __name__ == "__main__":
         prefix="lrs2",
     )
 
-    trainer.val_percent = 1.0
     trainer.checkpoint_callback = checkpoint_callback
     model.pretrain = False
     model.max_timesteps = 100

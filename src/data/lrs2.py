@@ -15,9 +15,10 @@ from src.data.transforms import Crop
 
 
 class LRS2Dataset(Dataset):
-    def __init__(self, path, in_channels=1, mode="train", max_timesteps=100, skip_long_samples=True, max_text_len=200, pretrain_words=0):
+    def __init__(self, path, in_channels=1, mode="train", max_timesteps=100, skip_long_samples=True, max_text_len=200, pretrain_words=0, pretrain=False):
+        assert mode in ['train', 'val', 'test']
         self.max_timesteps = max_timesteps
-        self.pretrain = mode == "pretrain"
+        self.pretrain = pretrain
         self.in_channels = in_channels
         self.max_timesteps = max_timesteps
         self.skip_long_samples = skip_long_samples
@@ -34,7 +35,12 @@ class LRS2Dataset(Dataset):
         crops = {}
         skipped_samples = 0
 
-        file = open(f"data/preprocess/lrs2/{mode}_crop.txt", "r")
+        if self.pretrain:
+            path = f"data/preprocess/lrs2/pretrain_crop.txt"
+        else:
+            path = f"data/preprocess/lrs2/{mode}_crop.txt"
+
+        file = open(path, "r")
         content = file.read()
         for i, line in enumerate(content.splitlines()):
             split = line.split(":")
@@ -49,6 +55,13 @@ class LRS2Dataset(Dataset):
                 if file in crops:
                     file_list.append(file)
                     paths.append(f"{directory}/mvlrs_v1/pretrain/{file}")
+
+            split = int(len(paths) * 0.95)
+            if mode == 'train':
+                paths[:split]
+            elif mode == 'val':
+                paths[split:]
+
         else:
             file = open(f"{directory}/{mode}.txt", "r")
             content = file.read()

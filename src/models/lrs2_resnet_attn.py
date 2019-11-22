@@ -117,7 +117,7 @@ class LRS2ResnetAttn(Module):
         cer, wer = self.decode(results, target_tensor, batch_num, log_interval=200, log=True)
 
         logs = {'train_loss': loss, 'train_cer': cer, 'train_wer': wer}
-        return {'loss': loss, 'cer': cer, 'teacher_ratio': self.teacher_forcing_ratio, 'log': logs}
+        return {'loss': loss, 'cer': cer, 'log': logs}
 
     def validation_step(self, batch, batch_num):
         input_tensor, lengths, target_tensor = batch
@@ -135,9 +135,13 @@ class LRS2ResnetAttn(Module):
             print("Skip validation for pretraining")
             return {}
 
-        loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         cer = np.mean([x['val_cer'] for x in outputs])
         wer = np.mean([x['val_wer'] for x in outputs])
+        loss = torch.stack([x['val_loss'] for x in outputs]).mean()
+        if self.trainer.scheduler is not None:
+            self.trainer.scheduler.step(loss)
+            for param_group in self.trainer.optimizer.param_groups:
+                logs['lr'] = param_group['lr']
 
         if self.best_val_cer > cer:
             self.best_val_cer = cer
@@ -160,20 +164,25 @@ class LRS2ResnetAttn(Module):
         # print(f"Use teacher forcing ratio: {self.teacher_forcing_ratio}")
 
     def configure_optimizers(self):
-        return optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
+        optimizer = optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode='min',
+            factor=0.5,
+            patience=3,
+            min_lr=1e-6,
+        )
+
+        return optimizer, scheduler
 
     def train_dataloader(self):
-        if self.pretrain:
-            mode = "pretrain"
-        else:
-            mode = "train"
-
         train_data = LRS2Dataset(
             path=self.hparams.data,
             max_text_len=self.max_text_len,
-            mode=mode,
+            mode='train',
             max_timesteps=self.max_timesteps,
             pretrain_words=self.pretrain_words,
+            pretrain=self.pretrain,
         )
         train_loader = DataLoader(
             train_data,
@@ -190,6 +199,7 @@ class LRS2ResnetAttn(Module):
             mode='val',
             max_timesteps=self.max_timesteps,
             max_text_len=self.max_text_len,
+            pretrain=self.pretrain,
         )
         val_loader = DataLoader(
             val_data, shuffle=False,

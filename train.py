@@ -23,6 +23,7 @@ if __name__ == "__main__":
     parser.add_argument("--resnet", type=int, default=18)
     parser.add_argument("--pretrained", default=True, type=lambda x: (str(x).lower() == 'true'))
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--use_amp", default=False, action='store_true')
     args = parser.parse_args()
 
     checkpoint_callback = ModelCheckpoint(
@@ -62,6 +63,7 @@ if __name__ == "__main__":
         num_max_epochs=args.epochs,
         early_stop_callback=early_stop_callback,
         checkpoint_callback=checkpoint_callback,
+        use_amp=args.use_amp,
     )
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Trainable parameters: {trainable_params}")
