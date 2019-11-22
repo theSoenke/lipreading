@@ -15,7 +15,7 @@ from src.data.transforms import Crop
 
 
 class LRS2Dataset(Dataset):
-    def __init__(self, path, in_channels=1, mode="train", max_timesteps=100, skip_long_samples=True, max_text_len=200, pretrain_words=0, pretrain=False):
+    def __init__(self, path, mode, in_channels=1, max_timesteps=100, skip_long_samples=True, max_text_len=200, pretrain_words=0, pretrain=False):
         assert mode in ['train', 'val', 'test']
         self.max_timesteps = max_timesteps
         self.pretrain = pretrain
@@ -58,9 +58,11 @@ class LRS2Dataset(Dataset):
 
             split = int(len(paths) * 0.95)
             if mode == 'train':
-                paths[:split]
+                paths = paths[:split]
+                file_list = file_list[:split]
             elif mode == 'val':
-                paths[split:]
+                paths = paths[split:]
+                file_list = file_list[split:]
 
         else:
             file = open(f"{directory}/{mode}.txt", "r")
