@@ -56,13 +56,13 @@ class LRS2Dataset(Dataset):
                     file_list.append(file)
                     paths.append(f"{directory}/mvlrs_v1/pretrain/{file}")
 
-            split = int(len(paths) * 0.95)
-            if mode == 'train':
-                paths = paths[:split]
-                file_list = file_list[:split]
-            elif mode == 'val':
-                paths = paths[split:]
-                file_list = file_list[split:]
+            # split = int(len(paths) * 0.95)
+            # if mode == 'train':
+            #     paths = paths[:split]
+            #     file_list = file_list[:split]
+            # elif mode == 'val':
+            #     paths = paths[split:]
+            #     file_list = file_list[split:]
 
         else:
             file = open(f"{directory}/{mode}.txt", "r")
@@ -119,6 +119,8 @@ class LRS2Dataset(Dataset):
         return len(self.file_paths)
 
     def get_pretrain_words(self, content):
+        assert self.pretrain_words > 0
+
         lines = content.splitlines()[4:]
         words = []
         for line in lines:
@@ -126,7 +128,7 @@ class LRS2Dataset(Dataset):
             start, stop = float(start), float(stop)
             words.append([word, start, stop])
 
-        num_words = min(random.randint(self.pretrain_words - 1, self.pretrain_words), len(words))
+        num_words = min(random.randint(max(self.pretrain_words - 1, 1), self.pretrain_words), len(words))
         word_start = random.randint(0, len(words) - num_words)
         word_end = word_start + num_words
 

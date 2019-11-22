@@ -35,20 +35,17 @@ if __name__ == "__main__":
         model = LRS2ResnetAttn(
             hparams=args,
             in_channels=1,
-            pretrain=args.pretrain,
         )
     elif args.model == 'wlsnet':
         model = WLSNet(
             hparams=args,
             in_channels=1,
-            pretrain=args.pretrain,
         )
     else:
         model = LRS2Model(
             hparams=args,
             in_channels=1,
             augmentations=False,
-            pretrain=args.pretrain,
         )
 
     logger = WandbLogger(
@@ -69,12 +66,14 @@ if __name__ == "__main__":
     logger.log_hyperparams(args)
 
     if args.checkpoint is not None:
-        load_checkpoint_mismatch(args.checkpoint, model)
+        model.pretrain = False
+        load_checkpoint_mismatch(args.checkpoint, model, verbose=True)
         logs = trainer.validate(model)
         logger.log_metrics(logs)
         print(f"Initial validation: wer: {logs['val_wer']:.4f}, cer: {logs['val_cer']:.4f}")
 
     if args.pretrain:
+        model.pretrain = True
         print("Pretraining model")
 
         # curriculum with max_sequence_length, max_text_len, number_of_words, epochs

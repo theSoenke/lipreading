@@ -131,6 +131,10 @@ class LRS2ResnetAttn(Module):
         }
 
     def validation_end(self, outputs):
+        if self.pretrain:
+            print("Skip during pretrain")
+            return
+
         cer = np.mean([x['val_cer'] for x in outputs])
         wer = np.mean([x['val_wer'] for x in outputs])
         loss = torch.stack([x['val_loss'] for x in outputs]).mean()
@@ -151,6 +155,7 @@ class LRS2ResnetAttn(Module):
         return {
             'val_loss': loss,
             'val_cer': cer,
+            'val_wer': wer,
             'log': logs,
         }
 
@@ -161,15 +166,16 @@ class LRS2ResnetAttn(Module):
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer,
-            mode='min',
-            factor=0.5,
-            patience=2,
-            min_lr=1e-6,
-        )
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        #     optimizer,
+        #     mode='min',
+        #     factor=0.5,
+        #     patience=2,
+        #     min_lr=1e-6,
+        #     verbose=True,
+        # )
 
-        return optimizer, scheduler
+        return optimizer
 
     def train_dataloader(self):
         train_data = LRS2Dataset(

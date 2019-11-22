@@ -18,7 +18,7 @@ def create_checkpoint(path, model, optimizer=None):
     torch.save(checkpoint, path)
 
 
-def load_checkpoint_mismatch(path, model, log=False):
+def load_checkpoint_mismatch(path, model, verbose=False):
     model_dict = model.state_dict()
     checkpoint_dict = torch.load(path)['state_dict']
 
