@@ -174,6 +174,7 @@ class LRS2Dataset(Dataset):
         content = content.strip().upper()
 
         assert len(crop) == num_frames
+        assert len(content) >= 1
         frames = self.build_tensor(video, crop)
 
         encoded = self.encode(content)

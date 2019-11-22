@@ -131,18 +131,9 @@ class LRS2ResnetAttn(Module):
         }
 
     def validation_end(self, outputs):
-        if self.pretrain:
-            print("Skip validation for pretraining")
-            return {}
-
         cer = np.mean([x['val_cer'] for x in outputs])
         wer = np.mean([x['val_wer'] for x in outputs])
         loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-        if self.trainer.scheduler is not None:
-            self.trainer.scheduler.step(loss)
-            for param_group in self.trainer.optimizer.param_groups:
-                logs['lr'] = param_group['lr']
-
         if self.best_val_cer > cer:
             self.best_val_cer = cer
         logs = {
@@ -151,6 +142,11 @@ class LRS2ResnetAttn(Module):
             'val_wer': wer,
             'best_val_cer': self.best_val_cer
         }
+
+        if self.trainer.scheduler is not None:
+            self.trainer.scheduler.step(loss)
+            for param_group in self.trainer.optimizer.param_groups:
+                logs['lr'] = param_group['lr']
 
         return {
             'val_loss': loss,
@@ -169,7 +165,7 @@ class LRS2ResnetAttn(Module):
             optimizer,
             mode='min',
             factor=0.5,
-            patience=3,
+            patience=2,
             min_lr=1e-6,
         )
 
@@ -199,6 +195,7 @@ class LRS2ResnetAttn(Module):
             mode='val',
             max_timesteps=self.max_timesteps,
             max_text_len=self.max_text_len,
+            pretrain_words=self.pretrain_words,
             pretrain=self.pretrain,
         )
         val_loader = DataLoader(

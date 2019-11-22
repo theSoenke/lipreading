@@ -96,6 +96,7 @@ if __name__ == "__main__":
             trainer.checkpoint_callback = checkpoint_callback
             model.max_timesteps = part[0]
             model.max_text_len = part[1]
+            model.pretrain = True
             model.pretrain_words = part[2]
             trainer.num_max_epochs = part[3]
             trainer.fit(model)
