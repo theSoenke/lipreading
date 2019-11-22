@@ -5,7 +5,7 @@ import torch
 from pytorch_trainer import (EarlyStopping, ModelCheckpoint, Trainer,
                              WandbLogger)
 
-from src.checkpoint import load_checkpoint
+from src.checkpoint import load_checkpoint_mismatch
 from src.models.lrs2_model import LRS2Model
 from src.models.lrs2_resnet_attn import LRS2ResnetAttn
 from src.models.wlsnet import WLSNet
@@ -98,18 +98,11 @@ if __name__ == "__main__":
             model.max_text_len = part[1]
             model.pretrain_words = part[2]
             trainer.num_max_epochs = part[3]
-            trainer.val_percent = 0.0
             trainer.fit(model)
             logger.save_file(checkpoint_callback.last_checkpoint_path)
 
         trainer.validate(model)
         print("Pretraining finished")
-
-    if args.checkpoint != None:
-        load_checkpoint(args.checkpoint, model, optimizer=None)
-        logs = trainer.validate(model)
-        logger.log_metrics(logs)
-        print(f"Initial validation: wer: {logs['val_wer']:.4f}, cer: {logs['val_cer']:.4f}")
 
     checkpoint_callback = ModelCheckpoint(
         directory=args.checkpoint_dir,
