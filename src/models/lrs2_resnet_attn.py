@@ -41,6 +41,7 @@ class LabelSmoothingLoss(nn.Module):
         output (FloatTensor): batch_size x n_classes
         target (LongTensor): batch_size
         """
+        output = output.log_softmax(dim=1)
         model_prob = self.one_hot.repeat(target.size(0), 1)
         model_prob.scatter_(1, target.unsqueeze(1), self.confidence)
         model_prob.masked_fill_((target == self.ignore_index).unsqueeze(1), 0)
@@ -116,7 +117,7 @@ class LRS2ResnetAttn(Module):
                 decoder_input = target_tensor[:, i].long().unsqueeze(dim=1)
             else:
                 decoder_input = topi.squeeze(dim=1).detach()
-            loss += self.criterion(decoder_output.squeeze(dim=1).log_softmax(dim=1), target_tensor[:, i].long())
+            loss += self.criterion(decoder_output.squeeze(dim=1), target_tensor[:, i].long())
             results.append(topi.cpu().squeeze(dim=1))
 
         results = torch.cat(results, dim=1)
