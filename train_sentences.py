@@ -70,16 +70,17 @@ if __name__ == "__main__":
         logger.log_metrics(logs)
 
     if args.pretrain:
+        train_epochs = args.epochs
         model.pretrain = True
         print("Pretraining model")
 
         # curriculum with max_sequence_length, max_text_len, number_of_words, epochs
         curriculum = [
-            [64, 32, 2, 15],
-            [96, 40, 3, 15],
-            [120, 48, 4, 10],
-            [132, 56, 6, 5],
-            [148, 64, 8, 5],
+            [64, 32, 2, 20],
+            [96, 40, 3, 20],
+            [120, 48, 4, 15],
+            [132, 56, 6, 10],
+            [148, 64, 8, 10],
         ]
 
         for part in curriculum:
@@ -96,9 +97,11 @@ if __name__ == "__main__":
             model.pretrain_words = part[2]
             trainer.val_percent = 0.0
             trainer.num_max_epochs = part[3]
+            args.epochs = part[3]
             trainer.fit(model)
             logger.save_file(checkpoint_callback.last_checkpoint_path)
 
+        args.epochs = train_epochs
         model.pretrain = False
         trainer.validate(model)
         print("Pretraining finished")

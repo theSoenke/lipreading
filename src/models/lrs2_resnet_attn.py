@@ -26,7 +26,9 @@ class LRS2ResnetAttn(Module):
         self.max_timesteps = 155
         self.max_text_len = 100
         self.pretrain_words = 0
+
         self.teacher_forcing_ratio = 1.0
+        self.min_teacher_forcing_ratio = 0.75
 
         dataset = self.train_dataloader().dataset
         self.int2char = dataset.int2char
@@ -117,7 +119,7 @@ class LRS2ResnetAttn(Module):
         cer, wer = self.decode(results, target_tensor, batch_num, log_interval=200, log=True)
 
         logs = {'train_loss': loss, 'train_cer': cer, 'train_wer': wer}
-        return {'loss': loss, 'cer': cer, 'log': logs}
+        return {'loss': loss, 'cer': cer, 'teacher_forcing': self.teacher_forcing_ratio, 'log': logs}
 
     def validation_step(self, batch, batch_num):
         input_tensor, lengths, target_tensor = batch
@@ -160,9 +162,9 @@ class LRS2ResnetAttn(Module):
         }
 
     def on_epoch_start(self, epoch):
-        pass
-        # self.teacher_forcing_ratio = 1.0 - (epoch / self.hparams.epochs)
-        # print(f"Use teacher forcing ratio: {self.teacher_forcing_ratio}")
+        decay_rate = (1.0 - self.min_teacher_forcing_ratio) / self.hparams.epochs
+        self.teacher_forcing_ratio = 1.0 - (epoch * decay_rate)
+        print(f"Use teacher forcing ratio: {self.teacher_forcing_ratio}")
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
