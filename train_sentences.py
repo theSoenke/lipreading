@@ -99,6 +99,7 @@ if __name__ == "__main__":
             trainer.fit(model)
             logger.save_file(checkpoint_callback.last_checkpoint_path)
 
+        model.pretrain = False
         trainer.validate(model)
         print("Pretraining finished")
 
