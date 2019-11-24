@@ -17,6 +17,37 @@ from src.data.lrs2 import LRS2Dataset
 from src.models.resnet import ResNetModel
 
 
+class LabelSmoothingLoss(nn.Module):
+    """
+    With label smoothing,
+    KL-divergence between q_{smoothed ground truth prob.}(w)
+    and p_{prob. computed by model}(w) is minimized.
+    """
+
+    def __init__(self, smoothing, vocab_size, ignore_index=-100):
+        assert 0.0 < smoothing <= 1.0
+        self.ignore_index = ignore_index
+        super().__init__()
+
+        smoothing_value = smoothing / (vocab_size - 2)
+        one_hot = torch.full((vocab_size,), smoothing_value)
+        one_hot[self.ignore_index] = 0
+        self.register_buffer('one_hot', one_hot.unsqueeze(0))
+
+        self.confidence = 1.0 - smoothing
+
+    def forward(self, output, target):
+        """
+        output (FloatTensor): batch_size x n_classes
+        target (LongTensor): batch_size
+        """
+        model_prob = self.one_hot.repeat(target.size(0), 1)
+        model_prob.scatter_(1, target.unsqueeze(1), self.confidence)
+        model_prob.masked_fill_((target == self.ignore_index).unsqueeze(1), 0)
+
+        return F.kl_div(output, model_prob, reduction='sum')
+
+
 class LRS2ResnetAttn(Module):
     def __init__(self, hparams, in_channels=1, pretrain=False):
         super().__init__()
@@ -49,7 +80,8 @@ class LRS2ResnetAttn(Module):
         num_characters = len(dataset.char_list)
         self.spell = Spell(3, 512, num_characters)
         self.device = torch.device("cuda:0")
-        self.criterion = nn.CrossEntropyLoss(ignore_index=self.char2int['<pad>'])
+        # self.criterion = nn.CrossEntropyLoss(ignore_index=self.char2int['<pad>'])
+        self.criterion = LabelSmoothingLoss(smoothing=0.1, vocab_size=num_characters, ignore_index=self.char2int['<pad>'])
 
         self.lstm = nn.LSTM(
             input_size=512,
@@ -84,7 +116,7 @@ class LRS2ResnetAttn(Module):
                 decoder_input = target_tensor[:, i].long().unsqueeze(dim=1)
             else:
                 decoder_input = topi.squeeze(dim=1).detach()
-            loss += self.criterion(decoder_output.squeeze(dim=1), target_tensor[:, i].long())
+            loss += self.criterion(decoder_output.squeeze(dim=1).log_softmax(dim=1), target_tensor[:, i].long())
             results.append(topi.cpu().squeeze(dim=1))
 
         results = torch.cat(results, dim=1)

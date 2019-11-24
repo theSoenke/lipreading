@@ -76,6 +76,7 @@ if __name__ == "__main__":
 
         # curriculum with max_sequence_length, max_text_len, number_of_words, epochs
         curriculum = [
+            [32, 16, 1, 20],
             [64, 32, 2, 20],
             [96, 40, 3, 20],
             [120, 48, 4, 15],
