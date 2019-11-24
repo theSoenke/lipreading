@@ -55,15 +55,6 @@ class LRS2Dataset(Dataset):
                 if file in crops:
                     file_list.append(file)
                     paths.append(f"{directory}/mvlrs_v1/pretrain/{file}")
-
-            # split = int(len(paths) * 0.95)
-            # if mode == 'train':
-            #     paths = paths[:split]
-            #     file_list = file_list[:split]
-            # elif mode == 'val':
-            #     paths = paths[split:]
-            #     file_list = file_list[split:]
-
         else:
             file = open(f"{directory}/{mode}.txt", "r")
             content = file.read()

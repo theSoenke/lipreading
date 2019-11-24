@@ -133,10 +133,6 @@ class LRS2ResnetAttn(Module):
         }
 
     def validation_end(self, outputs):
-        if self.pretrain:
-            print("Skip during pretrain")
-            return {}
-
         cer = np.mean([x['val_cer'] for x in outputs])
         wer = np.mean([x['val_wer'] for x in outputs])
         loss = torch.stack([x['val_loss'] for x in outputs]).mean()
@@ -201,10 +197,10 @@ class LRS2ResnetAttn(Module):
         val_data = LRS2Dataset(
             path=self.hparams.data,
             mode='val',
-            max_timesteps=self.max_timesteps,
-            max_text_len=self.max_text_len,
-            pretrain_words=self.pretrain_words,
-            pretrain=self.pretrain,
+            max_timesteps=100,
+            max_text_len=100,
+            pretrain_words=0,
+            pretrain=False,
         )
         val_loader = DataLoader(
             val_data, shuffle=False,

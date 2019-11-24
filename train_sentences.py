@@ -95,7 +95,6 @@ if __name__ == "__main__":
             model.max_text_len = part[1]
             model.pretrain = True
             model.pretrain_words = part[2]
-            trainer.val_percent = 0.0
             trainer.num_max_epochs = part[3]
             args.epochs = part[3]
             trainer.fit(model)
@@ -118,7 +117,6 @@ if __name__ == "__main__":
     model.pretrain = False
     model.max_timesteps = 100
     model.max_text_len = 100
-    trainer.val_percent = 1.0
     trainer.num_max_epochs = args.epochs
     trainer.fit(model)
 
