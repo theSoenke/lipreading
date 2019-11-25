@@ -56,7 +56,7 @@ if __name__ == "__main__":
         seed=args.seed,
         logger=logger,
         gpu_id=0,
-        num_max_epochs=args.epochs,
+        epochs=args.epochs,
         use_amp=args.use_amp,
     )
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -96,7 +96,7 @@ if __name__ == "__main__":
             model.max_text_len = part[1]
             model.pretrain = True
             model.pretrain_words = part[2]
-            trainer.num_max_epochs = part[3]
+            trainer.epochs = part[3]
             args.epochs = part[3]
             trainer.fit(model)
             logger.save_file(checkpoint_callback.last_checkpoint_path)
@@ -118,7 +118,7 @@ if __name__ == "__main__":
     model.pretrain = False
     model.max_timesteps = 100
     model.max_text_len = 100
-    trainer.num_max_epochs = args.epochs
+    trainer.epochs = args.epochs
     trainer.fit(model)
 
     logger.save_file(checkpoint_callback.last_checkpoint_path)

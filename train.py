@@ -60,7 +60,7 @@ if __name__ == "__main__":
         seed=args.seed,
         logger=logger,
         gpu_id=0,
-        num_max_epochs=args.epochs,
+        epochs=args.epochs,
         early_stop_callback=early_stop_callback,
         checkpoint_callback=checkpoint_callback,
         use_amp=args.use_amp,
