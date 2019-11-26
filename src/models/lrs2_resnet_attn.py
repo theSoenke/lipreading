@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader
 
 from src.data.lrs2 import LRS2Dataset
 from src.models.resnet import ResNetModel
+from src.radam import RAdam
 
 
 class LabelSmoothingLoss(nn.Module):
@@ -24,12 +25,12 @@ class LabelSmoothingLoss(nn.Module):
     and p_{prob. computed by model}(w) is minimized.
     """
 
-    def __init__(self, smoothing, vocab_size, ignore_index=-100):
+    def __init__(self, smoothing, vocab_size, ignore_index):
         assert 0.0 < smoothing <= 1.0
         self.ignore_index = ignore_index
         super().__init__()
 
-        smoothing_value = smoothing / (vocab_size - 2)
+        smoothing_value = smoothing / (vocab_size - 1)
         one_hot = torch.full((vocab_size,), smoothing_value)
         one_hot[self.ignore_index] = 0
         self.register_buffer('one_hot', one_hot.unsqueeze(0))
@@ -80,7 +81,6 @@ class LRS2ResnetAttn(Module):
         )
         num_characters = len(dataset.char_list)
         self.spell = Spell(3, 512, num_characters)
-        self.device = torch.device("cuda:0")
         # self.criterion = nn.CrossEntropyLoss(ignore_index=self.char2int['<pad>'])
         self.criterion = LabelSmoothingLoss(smoothing=0.1, vocab_size=num_characters, ignore_index=self.char2int['<pad>'])
 
@@ -102,18 +102,19 @@ class LRS2ResnetAttn(Module):
         watch_outputs, _ = pad_packed_sequence(x, batch_first=True)
         spell_hidden = states[0]
 
-        decoder_input = torch.tensor([self.char2int['<sos>']]).repeat(watch_outputs.size(0), 1).to(self.device)
-        cell_state = torch.zeros_like(spell_hidden).to(self.device)
-        context = torch.zeros(watch_outputs.size(0), 1, spell_hidden.size(2)).to(self.device)
+        device = self.trainer.device
+        decoder_input = torch.tensor([self.char2int['<sos>']], device=device).repeat(watch_outputs.size(0), 1)
+        cell_state = torch.zeros_like(spell_hidden, device=device)
+        context = torch.zeros(watch_outputs.size(0), 1, spell_hidden.size(2), device=device)
 
         loss = 0
         results = []
         target_length = target_tensor.size(1)
+        use_teacher_forcing = True if random.random() < self.teacher_forcing_ratio and enable_teacher else False
         for i in range(target_length):
-            use_teacher_forcing = True if random.random() < self.teacher_forcing_ratio else False
             decoder_output, spell_hidden, cell_state, context = self.spell(decoder_input, spell_hidden, cell_state, watch_outputs, context)
             _, topi = decoder_output.topk(1, dim=2)
-            if enable_teacher and use_teacher_forcing:
+            if use_teacher_forcing:
                 decoder_input = target_tensor[:, i].long().unsqueeze(dim=1)
             else:
                 decoder_input = topi.squeeze(dim=1).detach()
@@ -159,22 +160,36 @@ class LRS2ResnetAttn(Module):
         loss, results = self.forward(input_tensor, lengths, target_tensor, enable_teacher=False)
         cer, wer = self.decode(results, target_tensor, batch_num, log_interval=10, log=True)
 
+        print("Teacher forcing")
+        loss_teacher, results = self.forward(input_tensor, lengths, target_tensor, enable_teacher=True)
+        cer_teacher, wer_teacher = self.decode(results, target_tensor, batch_num, log_interval=10, log=True)
+
         return {
             'val_loss': loss,
             'val_cer': cer,
-            'val_wer': wer,
+            'val_loss': loss_teacher,
+            'val_wer_teacher': wer_teacher,
+            'val_cer_teacher': cer_teacher,
+            'val_wer_teacher': wer_teacher,
         }
 
     def validation_end(self, outputs):
         cer = np.mean([x['val_cer'] for x in outputs])
         wer = np.mean([x['val_wer'] for x in outputs])
         loss = torch.stack([x['val_loss'] for x in outputs]).mean()
+        cer_teacher = np.mean([x['val_cer_teacher'] for x in outputs])
+        wer_teacher = np.mean([x['val_wer_teacher'] for x in outputs])
+        loss_teacher = torch.stack([x['val_loss_teacher'] for x in outputs]).mean()
+
         if self.best_val_cer > cer:
             self.best_val_cer = cer
         logs = {
             'val_loss': loss,
             'val_cer': cer,
             'val_wer': wer,
+            'val_loss_teacher': loss_teacher,
+            'val_cer_teacher': cer_teacher,
+            'val_wer_teacher': wer_teacher,
             'best_val_cer': self.best_val_cer
         }
 
@@ -193,10 +208,11 @@ class LRS2ResnetAttn(Module):
     def on_epoch_start(self, epoch):
         decay_rate = (1.0 - self.min_teacher_forcing_ratio) / self.hparams.epochs
         self.teacher_forcing_ratio = 1.0 - (epoch * decay_rate)
+        self.trainer.logger.log_metrics({'teacher_forcing': self.teacher_forcing_ratio})
         print(f"Use teacher forcing ratio: {self.teacher_forcing_ratio}")
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
+        optimizer = RAdam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
         # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         #     optimizer,
         #     mode='min',
