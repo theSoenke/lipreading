@@ -93,6 +93,7 @@ class LRS2ResnetAttn(Module):
         )
 
         self.best_val_cer = 1.0
+        self.best_val_wer = 1.0
 
     def forward(self, x, lengths, target_tensor, enable_teacher=True):
         x = self.frontend(x)
@@ -167,8 +168,8 @@ class LRS2ResnetAttn(Module):
         return {
             'val_loss': loss,
             'val_cer': cer,
-            'val_loss': loss_teacher,
-            'val_wer_teacher': wer_teacher,
+            'val_wer': wer,
+            'val_loss_teacher': loss_teacher,
             'val_cer_teacher': cer_teacher,
             'val_wer_teacher': wer_teacher,
         }
@@ -183,6 +184,8 @@ class LRS2ResnetAttn(Module):
 
         if self.best_val_cer > cer:
             self.best_val_cer = cer
+        if self.best_val_wer > wer:
+            self.best_val_wer = wer
         logs = {
             'val_loss': loss,
             'val_cer': cer,
@@ -190,7 +193,8 @@ class LRS2ResnetAttn(Module):
             'val_loss_teacher': loss_teacher,
             'val_cer_teacher': cer_teacher,
             'val_wer_teacher': wer_teacher,
-            'best_val_cer': self.best_val_cer
+            'best_val_cer': self.best_val_cer,
+            'best_val_wer': self.best_val_wer,
         }
 
         if self.trainer.scheduler is not None:
