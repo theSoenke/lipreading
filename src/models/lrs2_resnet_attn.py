@@ -73,14 +73,18 @@ class LRS2ResnetAttn(Module):
             nn.ReLU(True),
             nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
         )
-        self.resnet = ResNetModel(
-            layers=hparams.resnet,
-            output_dim=512,
-            pretrained=True,
-            large_input=False
+
+        self.resnet = nn.Sequential(
+            ResNetModel(
+                layers=hparams.resnet,
+                output_dim=512,
+                pretrained=True,
+                large_input=False
+            ),
+            nn.Dropout(p=0.5),
         )
         num_characters = len(dataset.char_list)
-        self.spell = Spell(3, 512, num_characters)
+        self.spell = Decoder(3, 512, num_characters)
         # self.criterion = nn.CrossEntropyLoss(ignore_index=self.char2int['<pad>'])
         self.criterion = LabelSmoothingLoss(smoothing=0.1, vocab_size=num_characters, ignore_index=self.char2int['<pad>'])
 
@@ -263,7 +267,7 @@ class LRS2ResnetAttn(Module):
         return val_loader
 
 
-class Spell(nn.Module):
+class Decoder(nn.Module):
     def __init__(self, num_layers, hidden_size, output_size):
         super().__init__()
         self.hidden_size = hidden_size
@@ -277,9 +281,11 @@ class Spell(nn.Module):
             nn.Linear(hidden_size*2, hidden_size),
             nn.BatchNorm1d(hidden_size),
             nn.ReLU(),
+            nn.Dropout(p=0.5),
             nn.Linear(hidden_size, 256),
             nn.BatchNorm1d(256),
             nn.ReLU(),
+            nn.Dropout(p=0.5),
             nn.Linear(256, output_size)
         )
 
