@@ -127,7 +127,7 @@ class LRS2ResnetAttn(Module):
             results.append(topi.cpu().squeeze(dim=1))
 
         results = torch.cat(results, dim=1)
-        return loss, results
+        return loss / target_length, results
 
     def decode(self, results, target_tensor, batch_num, log_interval=1, log=False):
         cer, wer = 0, 0
@@ -165,7 +165,6 @@ class LRS2ResnetAttn(Module):
         loss, results = self.forward(input_tensor, lengths, target_tensor, enable_teacher=False)
         cer, wer = self.decode(results, target_tensor, batch_num, log_interval=10, log=True)
 
-        print("Teacher forcing")
         loss_teacher, results = self.forward(input_tensor, lengths, target_tensor, enable_teacher=True)
         cer_teacher, wer_teacher = self.decode(results, target_tensor, batch_num, log_interval=10, log=True)
 
