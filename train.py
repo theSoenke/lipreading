@@ -71,9 +71,8 @@ if __name__ == "__main__":
     logger.log_hyperparams(args)
 
     if args.checkpoint != None:
-        load_checkpoint(args.checkpoint, model, optimizer=None)
-        logs = trainer.validate(model)
-        logger.log_metrics({'val_acc': logs['val_acc'], 'val_los': logs['val_loss']})
+        logs = trainer.validate(model, checkpoint=args.checkpoint)
+        logger.log_metrics({'val_acc': logs['val_acc'], 'val_loss': logs['val_loss']})
         print(f"Initial val_acc: {logs['val_acc']:.4f}")
 
     trainer.fit(model)

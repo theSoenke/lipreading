@@ -53,8 +53,5 @@ if __name__ == "__main__":
     print(f"Trainable parameters: {trainable_params}")
     logger.log('parameters', trainable_params)
 
-    if args.checkpoint != None:
-        load_checkpoint(args.checkpoint, model, optimizer=None)
-
-    trainer.fit(model)
+    trainer.fit(model, checkpoint=args.checkpoint)
     logger.save_file(checkpoint_callback.last_checkpoint_path)

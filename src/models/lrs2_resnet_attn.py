@@ -78,7 +78,7 @@ class LRS2ResnetAttn(Module):
             ResNetModel(
                 layers=hparams.resnet,
                 output_dim=512,
-                pretrained=True,
+                pretrained=hparams.pretrained,
                 large_input=False
             ),
             nn.Dropout(p=0.5),
@@ -213,7 +213,7 @@ class LRS2ResnetAttn(Module):
         }
 
     def on_epoch_start(self, epoch):
-        decay_rate = (1.0 - self.min_teacher_forcing_ratio) / self.hparams.epochs
+        decay_rate = (1.0 - self.min_teacher_forcing_ratio) / (self.hparams.epochs - 1)
         self.teacher_forcing_ratio = 1.0 - (epoch * decay_rate)
         self.trainer.logger.log_metrics({'teacher_forcing': self.teacher_forcing_ratio})
         print(f"Use teacher forcing ratio: {self.teacher_forcing_ratio}")
