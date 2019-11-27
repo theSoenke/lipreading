@@ -11,17 +11,18 @@ from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
-from src.data.transforms import Crop
+from src.data.transforms import Crop, StatefulRandomHorizontalFlip
 
 
 class LRS2Dataset(Dataset):
-    def __init__(self, path, mode, in_channels=1, max_timesteps=100, skip_long_samples=True, max_text_len=200, pretrain_words=0, pretrain=False):
+    def __init__(self, path, mode, in_channels=1, max_timesteps=100, max_text_len=200, pretrain_words=0, pretrain=False, augmentations=False):
         assert mode in ['train', 'val', 'test']
         self.max_timesteps = max_timesteps
         self.pretrain = pretrain
         self.in_channels = in_channels
         self.max_timesteps = max_timesteps
-        self.skip_long_samples = skip_long_samples
+        self.augmentations = augmentations if mode in ['train', 'pretrain'] else False
+        self.skip_long_samples = True
         self.max_text_len = max_text_len
         self.pretrain_words = pretrain_words
         self.file_paths, self.file_names, self.crops = self.build_file_list(path, mode)
@@ -83,12 +84,20 @@ class LRS2Dataset(Dataset):
             crop = [float(crop) for crop in crop_frame]
             crops[i] = crop
 
+        if(self.augmentations):
+            augmentations = transforms.Compose([
+                StatefulRandomHorizontalFlip(0.5),
+            ])
+        else:
+            augmentations = transforms.Compose([])
+
         temporalVolume = torch.zeros(self.max_timesteps, self.in_channels, 64, 96)
         for i, frame in enumerate(frames):
             if self.in_channels == 1:
                 transform = transforms.Compose([
                     transforms.ToPILImage(),
                     Crop(crops[i]),
+                    augmentations,
                     transforms.Grayscale(num_output_channels=1),
                     transforms.ToTensor(),
                     transforms.Normalize([0.4161, ], [0.1688, ]),
@@ -97,6 +106,7 @@ class LRS2Dataset(Dataset):
                 transform = transforms.Compose([
                     transforms.ToPILImage(),
                     Crop(crops[i]),
+                    augmentations,
                     transforms.ToTensor(),
                     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
                 ])

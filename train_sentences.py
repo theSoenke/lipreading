@@ -76,12 +76,13 @@ if __name__ == "__main__":
 
         # curriculum with max_sequence_length, max_text_len, number_of_words, epochs
         curriculum = [
-            [32, 16, 1, 20],
+            [32, 16, 1, 30],
             [64, 32, 2, 20],
             [96, 40, 3, 20],
-            [120, 48, 4, 15],
-            [132, 56, 6, 10],
+            [120, 48, 4, 20],
+            [132, 56, 6, 15],
             [148, 64, 8, 10],
+            [156, 72, 10, 10],
         ]
 
         for part in curriculum:
@@ -116,7 +117,7 @@ if __name__ == "__main__":
 
     trainer.checkpoint_callback = checkpoint_callback
     model.pretrain = False
-    model.max_timesteps = 100
+    model.max_timesteps = 112
     model.max_text_len = 100
     trainer.epochs = args.epochs
     trainer.fit(model)

@@ -219,7 +219,7 @@ class LRS2ResnetAttn(Module):
         print(f"Use teacher forcing ratio: {self.teacher_forcing_ratio}")
 
     def configure_optimizers(self):
-        optimizer = RAdam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
+        optimizer = nn.optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
         # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         #     optimizer,
         #     mode='min',
@@ -239,6 +239,7 @@ class LRS2ResnetAttn(Module):
             max_timesteps=self.max_timesteps,
             pretrain_words=self.pretrain_words,
             pretrain=self.pretrain,
+            augmentations=True,
         )
         train_loader = DataLoader(
             train_data,
