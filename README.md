@@ -1,21 +1,21 @@
-# Ensemble-Based Multi-View Lipreading
+# Lipreading
 
 
 ## Setup
-- Install [ctcdecode](https://github.com/parlance/ctcdecode)
 - `conda env create -f environment.yml`
+- Get access to datatsets https://www.robots.ox.ac.uk/~vgg/data/lip_reading
 
 ## LRW
 
-    USER=$USER PASSWORD=$PASS ./scripts/lrw_download.sh data/datasets/lrw
+    USER='' PASSWORD='' ./scripts/lrw_download.sh data/datasets/lrw
     python3 preprocess.py lrw --data data/datasets/lrw
     python3 train.py --data data/lrw --words 10
 
-## Train LRS2
+## LRS2
 
-    USER=$USER PASSWORD=$PASS ./scripts/lrs2_download.sh data/datasets/lrs2
+    USER='' PASSWORD='' ./scripts/lrs2_download.sh data/datasets/lrs2
     python3 preprocess.py lrs2 --data data/datasets/lrs2
-    python3 train_ctc.py --data data/datasets/lrs2
+    python3 train_sentences.py --data data/datasets/lrs2 --pretrain
 
 ## Train in Docker
 
