@@ -16,7 +16,7 @@ from src.decoder.greedy import GreedyDecoder
 from src.models.resnet import ResNetModel
 
 
-class LRS2Model(Module):
+class LRS2ResnetCTC(Module):
     def __init__(self, hparams, in_channels=1, augmentations=False, pretrain=False, hidden_size=256):
         super().__init__()
         self.hparams = hparams

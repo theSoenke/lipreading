@@ -5,8 +5,8 @@ import torch
 from pytorch_trainer import (EarlyStopping, ModelCheckpoint, Trainer,
                              WandbLogger)
 
-from src.models.lrs2_model import LRS2Model
 from src.models.lrs2_resnet_attn import LRS2ResnetAttn
+from src.models.lrs2_resnet_ctc import LRS2ResnetCTC
 from src.models.wlsnet import WLSNet
 
 if __name__ == "__main__":
@@ -41,7 +41,7 @@ if __name__ == "__main__":
             in_channels=1,
         )
     else:
-        model = LRS2Model(
+        model = LRS2ResnetCTC(
             hparams=args,
             in_channels=1,
             augmentations=False,
