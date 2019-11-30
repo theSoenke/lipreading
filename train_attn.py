@@ -5,12 +5,14 @@ import torch
 from pytorch_trainer import (EarlyStopping, ModelCheckpoint, Trainer,
                              WandbLogger)
 
+from src.models.expert_early_attn_model import ExpertEarlyAttnModel
 from src.models.expert_model import ExpertModel
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', required=True)
     parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints/lrw')
+    parser.add_argument("--attn", type=str, default='output')
     parser.add_argument("--checkpoint_left", type=str, required=True)
     parser.add_argument("--checkpoint_center", type=str, required=True)
     parser.add_argument("--checkpoint_right", type=str, required=True)
@@ -41,7 +43,22 @@ if __name__ == "__main__":
 
     args.workers = psutil.cpu_count(logical=False) if args.workers == None else args.workers
     args.pretrained = False
-    model = ExpertModel(args, args.checkpoint_left, args.checkpoint_center, args.checkpoint_right)
+
+    if args.attn == 'output':
+        model = ExpertModel(
+            args,
+            args.checkpoint_left,
+            args.checkpoint_center,
+            args.checkpoint_right
+        )
+    elif args.attn == 'early':
+        model = ExpertEarlyAttnModel(
+            args,
+            args.checkpoint_left,
+            args.checkpoint_center,
+            args.checkpoint_right,
+        )
+
     logger = WandbLogger(
         project='lipreading',
         model=model,
