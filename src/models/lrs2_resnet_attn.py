@@ -74,14 +74,11 @@ class LRS2ResnetAttn(Module):
             nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
         )
 
-        self.resnet = nn.Sequential(
-            ResNetModel(
-                layers=hparams.resnet,
-                output_dim=512,
-                pretrained=hparams.pretrained,
-                large_input=False
-            ),
-            nn.Dropout(p=0.5),
+        self.resnet = ResNetModel(
+            layers=hparams.resnet,
+            output_dim=512,
+            pretrained=hparams.pretrained,
+            large_input=False
         )
         num_characters = len(dataset.char_list)
         self.spell = Decoder(3, 512, num_characters)
@@ -281,11 +278,9 @@ class Decoder(nn.Module):
             nn.Linear(hidden_size*2, hidden_size),
             nn.BatchNorm1d(hidden_size),
             nn.ReLU(),
-            nn.Dropout(p=0.5),
             nn.Linear(hidden_size, 256),
             nn.BatchNorm1d(256),
             nn.ReLU(),
-            nn.Dropout(p=0.5),
             nn.Linear(256, output_size)
         )
 
