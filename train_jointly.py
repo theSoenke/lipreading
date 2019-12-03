@@ -10,7 +10,7 @@ from src.models.joined_expert_model import JoinedExpertModel
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data', required=True)
+    parser.add_argument('--data', default='data/datasets/lrw')
     parser.add_argument("--checkpoint", type=str)
     parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints/lrw')
     parser.add_argument("--batch_size", type=int, default=32)
@@ -65,9 +65,10 @@ if __name__ == "__main__":
     logger.log('parameters', trainable_params)
     logger.log_hyperparams(args)
 
-    logs = trainer.validate(model)
-    logger.log_metrics({'val_acc': logs['val_acc'], 'val_los': logs['val_loss']})
-    print(f"Initial val_acc: {logs['val_acc']:.4f}")
+    if args.checkpoint:
+        logs = trainer.validate(model, checkpoint=args.checkpoint)
+        logger.log_metrics({'val_acc': logs['val_acc'], 'val_los': logs['val_loss']})
+        print(f"Initial val_acc: {logs['val_acc']:.4f}")
 
-    trainer.fit(model)
+    trainer.fit(model, checkpoint=args.checkpoint)
     logger.save_file(checkpoint_callback.last_checkpoint_path)

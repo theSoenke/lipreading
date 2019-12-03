@@ -113,7 +113,7 @@ class JoinedExpertModel(Module):
         plt.xlabel('Degree')
         plt.ylabel('Attention')
 
-        path = f"attention_seed_{self.hparams.seed}_epoch_{self.epoch}.png"
+        path = f"data/viz/lrw/attention_seed_{self.hparams.seed}_epoch_{self.epoch}.png"
         plt.savefig(path)
         self.logger.save_file(path)
         plt.clf()
