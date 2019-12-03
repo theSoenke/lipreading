@@ -15,7 +15,6 @@ from torch.utils.data import DataLoader
 
 from src.data.lrs2 import LRS2Dataset
 from src.models.resnet import ResNetModel
-from src.radam import RAdam
 
 
 class LabelSmoothingLoss(nn.Module):
@@ -81,7 +80,7 @@ class LRS2ResnetAttn(Module):
             large_input=False
         )
         num_characters = len(dataset.char_list)
-        self.spell = Decoder(3, 512, num_characters)
+        self.attention_decoder = AttentionDecoder(3, 512, num_characters)
         # self.criterion = nn.CrossEntropyLoss(ignore_index=self.char2int['<pad>'])
         self.criterion = LabelSmoothingLoss(smoothing=0.1, vocab_size=num_characters, ignore_index=self.char2int['<pad>'])
 
@@ -114,7 +113,8 @@ class LRS2ResnetAttn(Module):
         target_length = target_tensor.size(1)
         use_teacher_forcing = True if random.random() < self.teacher_forcing_ratio and enable_teacher else False
         for i in range(target_length):
-            decoder_output, spell_hidden, cell_state, context = self.spell(decoder_input, spell_hidden, cell_state, watch_outputs, context)
+            decoder_output, spell_hidden, cell_state, context = self.attention_decoder(
+                decoder_input, spell_hidden, cell_state, watch_outputs, context)
             _, topi = decoder_output.topk(1, dim=2)
             if use_teacher_forcing:
                 decoder_input = target_tensor[:, i].long().unsqueeze(dim=1)
@@ -264,7 +264,7 @@ class LRS2ResnetAttn(Module):
         return val_loader
 
 
-class Decoder(nn.Module):
+class AttentionDecoder(nn.Module):
     def __init__(self, num_layers, hidden_size, output_size):
         super().__init__()
         self.hidden_size = hidden_size
@@ -290,26 +290,26 @@ class Decoder(nn.Module):
         output, (hidden_state, cell_state) = self.lstm(concatenated, (hidden_state, cell_state))
         context = self.attention(hidden_state[-1], watch_outputs)
         output = self.mlp(torch.cat([output, context], dim=2).squeeze(dim=1)).unsqueeze(dim=1)
-
+        output=F.log_softmax(output, dim=2)
         return output, hidden_state, cell_state, context
 
 
 class Attention(nn.Module):
     def __init__(self, hidden_size, annotation_size):
         super().__init__()
-        self.dense = nn.Sequential(
+        self.dense=nn.Sequential(
             nn.Linear(hidden_size+annotation_size, hidden_size),
             nn.Tanh(),
             nn.Linear(hidden_size, 1)
         )
 
     def forward(self, prev_hidden_state, annotations):
-        batch_size, sequence_length, _ = annotations.size()
-        prev_hidden_state = prev_hidden_state.repeat(sequence_length, 1, 1).transpose(0, 1)
+        batch_size, sequence_length, _=annotations.size()
+        prev_hidden_state=prev_hidden_state.repeat(sequence_length, 1, 1).transpose(0, 1)
 
-        concatenated = torch.cat([prev_hidden_state, annotations], dim=2)
-        attn_energies = self.dense(concatenated).squeeze(dim=2)
-        alpha = F.softmax(attn_energies, dim=1).unsqueeze(dim=1)
-        context = alpha.bmm(annotations)
+        concatenated=torch.cat([prev_hidden_state, annotations], dim=2)
+        attn_energies=self.dense(concatenated).squeeze(dim=2)
+        alpha=F.softmax(attn_energies, dim=1).unsqueeze(dim=1)
+        context=alpha.bmm(annotations)
 
         return context
