@@ -32,7 +32,7 @@ for seed in {0..30}; do
         --checkpoint_right data/checkpoints/lrw/expert_seed_${seed}_20,90.pkl
 
     printf "\nTrain early attention layer\n"
-    python3 train_early_attn.py --data $data --words 10 --seed $seed --batch_size $batch_size \
+    python3 train_attn.py --attn early --data $data --words 10 --seed $seed --batch_size $batch_size \
         --checkpoint_left data/checkpoints/lrw/expert_seed_${seed}_-90,-20.pkl \
         --checkpoint_center data/checkpoints/lrw/expert_seed_${seed}_-20,20.pkl \
         --checkpoint_right data/checkpoints/lrw/expert_seed_${seed}_20,90.pkl
