@@ -80,3 +80,4 @@ if __name__ == "__main__":
     logs = trainer.validate(model)
     print(f"Initial expert val_acc: {logs['val_acc']:.4f}")
     trainer.fit(model)
+    logger.save_file(checkpoint_callback.last_checkpoint_path)
