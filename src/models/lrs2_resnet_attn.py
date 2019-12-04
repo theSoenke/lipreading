@@ -290,26 +290,26 @@ class AttentionDecoder(nn.Module):
         output, (hidden_state, cell_state) = self.lstm(concatenated, (hidden_state, cell_state))
         context = self.attention(hidden_state[-1], watch_outputs)
         output = self.mlp(torch.cat([output, context], dim=2).squeeze(dim=1)).unsqueeze(dim=1)
-        output=F.log_softmax(output, dim=2)
+        output = F.log_softmax(output, dim=2)
         return output, hidden_state, cell_state, context
 
 
 class Attention(nn.Module):
     def __init__(self, hidden_size, annotation_size):
         super().__init__()
-        self.dense=nn.Sequential(
+        self.dense = nn.Sequential(
             nn.Linear(hidden_size+annotation_size, hidden_size),
             nn.Tanh(),
             nn.Linear(hidden_size, 1)
         )
 
     def forward(self, prev_hidden_state, annotations):
-        batch_size, sequence_length, _=annotations.size()
-        prev_hidden_state=prev_hidden_state.repeat(sequence_length, 1, 1).transpose(0, 1)
+        batch_size, sequence_length, _ = annotations.size()
+        prev_hidden_state = prev_hidden_state.repeat(sequence_length, 1, 1).transpose(0, 1)
 
-        concatenated=torch.cat([prev_hidden_state, annotations], dim=2)
-        attn_energies=self.dense(concatenated).squeeze(dim=2)
-        alpha=F.softmax(attn_energies, dim=1).unsqueeze(dim=1)
-        context=alpha.bmm(annotations)
+        concatenated = torch.cat([prev_hidden_state, annotations], dim=2)
+        attn_energies = self.dense(concatenated).squeeze(dim=2)
+        alpha = F.softmax(attn_energies, dim=1).unsqueeze(dim=1)
+        context = alpha.bmm(annotations)
 
         return context
