@@ -226,7 +226,7 @@ class LRS2ResnetAttn(Module):
             verbose=True,
         )
 
-        return optimizer
+        return optimizer, scheduler
 
     def train_dataloader(self):
         train_data = LRS2Dataset(
