@@ -217,14 +217,14 @@ class LRS2ResnetAttn(Module):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
-        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        #     optimizer,
-        #     mode='min',
-        #     factor=0.5,
-        #     patience=2,
-        #     min_lr=1e-6,
-        #     verbose=True,
-        # )
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode='min',
+            factor=0.5,
+            patience=5,
+            min_lr=1e-6,
+            verbose=True,
+        )
 
         return optimizer
 
