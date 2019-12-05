@@ -23,8 +23,8 @@ RUN conda env create -f environment.yml && \
     conda clean -afy
 
 # Required for beamsearch
-# RUN git clone --recursive https://github.com/parlance/ctcdecode.git && \
-#     cd ctcdecode && conda run -n lipreading pip install .
+RUN git clone --recursive https://github.com/parlance/ctcdecode.git && \
+    cd ctcdecode && conda run -n lipreading pip install .
 RUN git clone https://github.com/NVIDIA/apex && cd apex && \
     conda run -n lipreading pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
 

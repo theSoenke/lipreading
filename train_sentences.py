@@ -13,6 +13,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', default="data/datasets/lrs2")
     parser.add_argument('--model', default="resnet")
+    parser.add_argument('--lm_path')
     parser.add_argument("--checkpoint_dir", type=str, default='data/checkpoints/lrs2')
     parser.add_argument("--checkpoint", type=str)
     parser.add_argument("--batch_size", type=int, default=16)

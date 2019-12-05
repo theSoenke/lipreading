@@ -2,6 +2,7 @@ import os
 import random
 import re
 
+import ctcdecode
 import editdistance
 import numpy as np
 import torch
@@ -92,6 +93,21 @@ class LRS2ResnetAttn(Module):
             bidirectional=False,
         )
 
+        self.vocab_list = dataset.char_list
+        self.vocab_list[self.vocab_list.index("<pad>")] = "_"
+        self.vocab_list[self.vocab_list.index("<eos>")] = "@"
+        self.vocab_list[self.vocab_list.index("<sos>")] = "$"
+        self.decoder = ctcdecode.CTCBeamDecoder(
+            self.vocab_list,
+            model_path=hparams.lm_path,
+            alpha=1.0,
+            beta=1.0,
+            cutoff_top_n=50,
+            cutoff_prob=0.99,
+            beam_width=200,
+            blank_id=self.vocab_list.index("_"),
+        )
+
         self.best_val_cer = 1.0
         self.best_val_wer = 1.0
 
@@ -110,23 +126,28 @@ class LRS2ResnetAttn(Module):
 
         loss = 0
         results = []
+        probs_seq = []
         target_length = target_tensor.size(1)
-        use_teacher_forcing = True if random.random() < self.teacher_forcing_ratio and enable_teacher else False
         for i in range(target_length):
-            decoder_output, spell_hidden, cell_state, context = self.attention_decoder(
+            use_teacher_forcing = True if enable_teacher and random.random() < self.teacher_forcing_ratio else False
+            decoder_output, spell_hidden, cell_state, context = self.spell(
                 decoder_input, spell_hidden, cell_state, watch_outputs, context)
             _, topi = decoder_output.topk(1, dim=2)
             if use_teacher_forcing:
                 decoder_input = target_tensor[:, i].long().unsqueeze(dim=1)
             else:
                 decoder_input = topi.squeeze(dim=1).detach()
+            probs_seq.append(decoder_output.squeeze(dim=1))
             loss += self.criterion(decoder_output.squeeze(dim=1), target_tensor[:, i].long())
-            results.append(topi.cpu().squeeze(dim=1))
+            # results.append(topi.cpu().squeeze(dim=1))
 
-        results = torch.cat(results, dim=1)
-        return loss / target_length, results
+        probs_seq = torch.stack(probs_seq, dim=1).softmax(dim=2)
+        # results = torch.cat(results, dim=1)
+        return loss / target_length, probs_seq
 
-    def decode(self, results, target_tensor, batch_num, log_interval=1, log=False):
+    def greedy_decode(self, results, target_tensor, batch_num, log_interval=1, log=False):
+        _, results = results.topk(1, dim=2)
+        results = results.squeeze(dim=2)
         cer, wer = 0, 0
         target_length = results.size(1)
         batch_size = results.size(0)
@@ -149,21 +170,49 @@ class LRS2ResnetAttn(Module):
 
         return cer / batch_size, wer / batch_size
 
+    def beam_decode(self, results, target_tensor):
+        beam_results, beam_scores, timesteps, out_seq_len = self.decoder.decode(results)
+        target_length = results.size(1)
+        batch_size = results.size(0)
+        cer, wer = 0, 0
+        for batch in range(batch_size):
+            seq_len = out_seq_len[batch][0]
+            tokens = beam_results[batch][0]  # select output with best score
+            output = ''.join([self.vocab_list[x] for x in tokens[0:seq_len]])
+            output = output[:output.find('@')].strip()
+            output = re.sub(' +', ' ', output)
+
+            label = ''
+            for index in range(target_length):
+                label += self.int2char[int(target_tensor[batch, index])]
+            label = label.replace('<pad>', ' ').replace('<eos>', '@')
+            label = label[:label.find("@")]
+            print([output, label])
+            cer += editdistance.eval(output, label) / max(len(output), len(label))
+            output_words, label_words = output.split(" "), label.split(" ")
+            wer += editdistance.eval(output_words, label_words) / max(len(output_words), len(label_words))
+
+        return cer / batch_size, wer / batch_size
+
     def training_step(self, batch, batch_num):
         input_tensor, lengths, target_tensor = batch
-        loss, results = self.forward(input_tensor, lengths, target_tensor)
-        cer, wer = self.decode(results, target_tensor, batch_num, log_interval=200, log=True)
+        loss, probs_seq = self.forward(input_tensor, lengths, target_tensor)
+        cer, wer = self.greedy_decode(probs_seq, target_tensor, batch_num, log_interval=200, log=True)
 
         logs = {'train_loss': loss, 'train_cer': cer, 'train_wer': wer}
         return {'loss': loss, 'cer': cer, 'teacher_forcing': self.teacher_forcing_ratio, 'log': logs}
 
     def validation_step(self, batch, batch_num):
         input_tensor, lengths, target_tensor = batch
-        loss, results = self.forward(input_tensor, lengths, target_tensor, enable_teacher=False)
-        cer, wer = self.decode(results, target_tensor, batch_num, log_interval=10, log=True)
+        loss, probs_seq = self.forward(input_tensor, lengths, target_tensor, enable_teacher=False)
+        cer, wer = self.greedy_decode(probs_seq, target_tensor, batch_num, log_interval=10, log=True)
+        beam_cer, beam_wer = self.beam_decode(probs_seq, target_tensor)
 
-        loss_teacher, results = self.forward(input_tensor, lengths, target_tensor, enable_teacher=True)
-        cer_teacher, wer_teacher = self.decode(results, target_tensor, batch_num, log_interval=10, log=True)
+        print(f"CER: {cer}, beam: {beam_cer}")
+        print(f"WER: {wer}, beam: {beam_wer}")
+
+        loss_teacher, probs_seq = self.forward(input_tensor, lengths, target_tensor, enable_teacher=True)
+        cer_teacher, wer_teacher = self.greedy_decode(probs_seq, target_tensor, batch_num, log_interval=10, log=True)
 
         return {
             'val_loss': loss,
