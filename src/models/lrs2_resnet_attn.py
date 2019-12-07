@@ -125,7 +125,6 @@ class LRS2ResnetAttn(Module):
         context = torch.zeros(watch_outputs.size(0), 1, spell_hidden.size(2), device=device)
 
         loss = 0
-        results = []
         probs_seq = []
         target_length = target_tensor.size(1)
         for i in range(target_length):
@@ -139,10 +138,8 @@ class LRS2ResnetAttn(Module):
                 decoder_input = topi.squeeze(dim=1).detach()
             probs_seq.append(decoder_output.squeeze(dim=1))
             loss += self.criterion(decoder_output.squeeze(dim=1), target_tensor[:, i].long())
-            # results.append(topi.cpu().squeeze(dim=1))
 
         probs_seq = torch.stack(probs_seq, dim=1).softmax(dim=2)
-        # results = torch.cat(results, dim=1)
         return loss / target_length, probs_seq
 
     def greedy_decode(self, results, target_tensor, batch_num, log_interval=1, log=False):
@@ -205,28 +202,34 @@ class LRS2ResnetAttn(Module):
     def validation_step(self, batch, batch_num):
         input_tensor, lengths, target_tensor = batch
         loss, probs_seq = self.forward(input_tensor, lengths, target_tensor, enable_teacher=False)
-        cer, wer = self.greedy_decode(probs_seq, target_tensor, batch_num, log_interval=10, log=True)
+        cer, wer = self.greedy_decode(probs_seq, target_tensor, batch_num, log_interval=20, log=True)
         beam_cer, beam_wer = self.beam_decode(probs_seq, target_tensor)
 
-        print(f"CER: {cer}, beam: {beam_cer}")
-        print(f"WER: {wer}, beam: {beam_wer}")
-
         loss_teacher, probs_seq = self.forward(input_tensor, lengths, target_tensor, enable_teacher=True)
-        cer_teacher, wer_teacher = self.greedy_decode(probs_seq, target_tensor, batch_num, log_interval=10, log=True)
+        cer_teacher, wer_teacher = self.greedy_decode(probs_seq, target_tensor, batch_num, log_interval=20, log=True)
+        beam_cer_teacher, beam_wer_teacher = self.beam_decode(probs_seq, target_tensor)
 
         return {
             'val_loss': loss,
             'val_cer': cer,
             'val_wer': wer,
+            'val_beam_cer': beam_cer,
+            'val_beam_wer': beam_wer,
             'val_loss_teacher': loss_teacher,
             'val_cer_teacher': cer_teacher,
             'val_wer_teacher': wer_teacher,
+            'val_beam_cer_teacher': beam_cer_teacher,
+            'val_beam_wer_teacher': beam_wer_teacher,
         }
 
     def validation_end(self, outputs):
         cer = np.mean([x['val_cer'] for x in outputs])
         wer = np.mean([x['val_wer'] for x in outputs])
         loss = torch.stack([x['val_loss'] for x in outputs]).mean()
+        beam_cer = np.mean([x['val_beam_cer'] for x in outputs])
+        beam_wer = np.mean([x['val_beam_wer'] for x in outputs])
+        beam_cer_teacher = np.mean([x['val_beam_cer_teacher'] for x in outputs])
+        beam_wer_teacher = np.mean([x['val_beam_wer_teacher'] for x in outputs])
         cer_teacher = np.mean([x['val_cer_teacher'] for x in outputs])
         wer_teacher = np.mean([x['val_wer_teacher'] for x in outputs])
         loss_teacher = torch.stack([x['val_loss_teacher'] for x in outputs]).mean()
@@ -239,9 +242,13 @@ class LRS2ResnetAttn(Module):
             'val_loss': loss,
             'val_cer': cer,
             'val_wer': wer,
+            'val_beam_cer': beam_cer,
+            'val_beam_wer': beam_wer,
             'val_loss_teacher': loss_teacher,
             'val_cer_teacher': cer_teacher,
             'val_wer_teacher': wer_teacher,
+            'val_beam_cer_teacher': beam_cer_teacher,
+            'val_beam_wer_teacher': beam_wer_teacher,
             'best_val_cer': self.best_val_cer,
             'best_val_wer': self.best_val_wer,
         }

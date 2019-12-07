@@ -69,6 +69,7 @@ if __name__ == "__main__":
         model.pretrain = False
         logs = trainer.validate(model, checkpoint=args.checkpoint)
         logger.log_metrics(logs)
+        print(f"Initial metrics: {logs}")
 
     if args.pretrain:
         train_epochs = args.epochs
