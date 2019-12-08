@@ -4,6 +4,7 @@ import re
 
 import ctcdecode
 import editdistance
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torchvision.transforms as transforms
@@ -80,11 +81,6 @@ class LRS2ResnetAttn(Module):
             pretrained=hparams.pretrained,
             large_input=False
         )
-        num_characters = len(dataset.char_list)
-        self.attention_decoder = AttentionDecoder(3, 512, num_characters)
-        # self.criterion = nn.CrossEntropyLoss(ignore_index=self.char2int['<pad>'])
-        self.criterion = LabelSmoothingLoss(smoothing=0.1, vocab_size=num_characters, ignore_index=self.char2int['<pad>'])
-
         self.lstm = nn.LSTM(
             input_size=512,
             hidden_size=512,
@@ -92,6 +88,10 @@ class LRS2ResnetAttn(Module):
             batch_first=True,
             bidirectional=False,
         )
+        num_characters = len(dataset.char_list)
+        self.spell = AttentionDecoder(3, 512, num_characters)
+        # self.criterion = nn.CrossEntropyLoss(ignore_index=self.char2int['<pad>'])
+        self.criterion = LabelSmoothingLoss(smoothing=0.1, vocab_size=num_characters, ignore_index=self.char2int['<pad>'])
 
         self.vocab_list = dataset.char_list
         self.vocab_list[self.vocab_list.index("<pad>")] = "_"
@@ -125,29 +125,33 @@ class LRS2ResnetAttn(Module):
         context = torch.zeros(watch_outputs.size(0), 1, spell_hidden.size(2), device=device)
 
         loss = 0
-        probs_seq = []
-        target_length = target_tensor.size(1)
-        for i in range(target_length):
+        results = []
+        max_length = target_tensor.size(1)
+        decoder_attentions = []
+        for i in range(max_length):
             use_teacher_forcing = True if enable_teacher and random.random() < self.teacher_forcing_ratio else False
-            decoder_output, spell_hidden, cell_state, context = self.spell(
+            decoder_output, spell_hidden, cell_state, context, attn_weights = self.spell(
                 decoder_input, spell_hidden, cell_state, watch_outputs, context)
             _, topi = decoder_output.topk(1, dim=2)
+            decoder_attentions.append(attn_weights.squeeze(dim=1))
             if use_teacher_forcing:
                 decoder_input = target_tensor[:, i].long().unsqueeze(dim=1)
             else:
                 decoder_input = topi.squeeze(dim=1).detach()
-            probs_seq.append(decoder_output.squeeze(dim=1))
+            results.append(decoder_output.squeeze(dim=1))
             loss += self.criterion(decoder_output.squeeze(dim=1), target_tensor[:, i].long())
 
-        probs_seq = torch.stack(probs_seq, dim=1).softmax(dim=2)
-        return loss / target_length, probs_seq
+        decoder_attentions = torch.stack(decoder_attentions, dim=1)
+        results = torch.stack(results, dim=1).softmax(dim=2)
+        return loss / max_length, results, decoder_attentions
 
-    def greedy_decode(self, results, target_tensor, batch_num, log_interval=1, log=False):
+    def greedy_decode(self, results, target_tensor, batch_num):
         _, results = results.topk(1, dim=2)
         results = results.squeeze(dim=2)
         cer, wer = 0, 0
         target_length = results.size(1)
         batch_size = results.size(0)
+        sentences = []
         for batch in range(batch_size):
             output = ''
             label = ''
@@ -159,19 +163,19 @@ class LRS2ResnetAttn(Module):
             output = output.replace('<eos>', '@').replace('<pad>', '&').replace('<sos>', '&')
             output = output[:output.find('@')].strip()
             output = re.sub(' +', ' ', output)
-            if log and batch_num % log_interval == 0:
-                print([output, label])
+            sentences.append([label, output])
             cer += editdistance.eval(output, label) / max(len(output), len(label))
             output_words, label_words = output.split(" "), label.split(" ")
             wer += editdistance.eval(output_words, label_words) / max(len(output_words), len(label_words))
 
-        return cer / batch_size, wer / batch_size
+        return cer / batch_size, wer / batch_size, sentences
 
     def beam_decode(self, results, target_tensor):
         beam_results, beam_scores, timesteps, out_seq_len = self.decoder.decode(results)
         target_length = results.size(1)
         batch_size = results.size(0)
         cer, wer = 0, 0
+        sentences = []
         for batch in range(batch_size):
             seq_len = out_seq_len[batch][0]
             tokens = beam_results[batch][0]  # select output with best score
@@ -184,30 +188,66 @@ class LRS2ResnetAttn(Module):
                 label += self.int2char[int(target_tensor[batch, index])]
             label = label.replace('<pad>', ' ').replace('<eos>', '@')
             label = label[:label.find("@")]
-            print([output, label])
+            sentences.append([label, output])
             cer += editdistance.eval(output, label) / max(len(output), len(label))
             output_words, label_words = output.split(" "), label.split(" ")
             wer += editdistance.eval(output_words, label_words) / max(len(output_words), len(label_words))
 
-        return cer / batch_size, wer / batch_size
+        return cer / batch_size, wer / batch_size, sentences
 
     def training_step(self, batch, batch_num):
-        input_tensor, lengths, target_tensor = batch
-        loss, probs_seq = self.forward(input_tensor, lengths, target_tensor)
-        cer, wer = self.greedy_decode(probs_seq, target_tensor, batch_num, log_interval=200, log=True)
+        frames, input_lengths, target = batch
+        loss, results, _ = self.forward(frames, input_lengths, target)
+        cer, wer, sentences = self.greedy_decode(results, target, batch_num)
 
         logs = {'train_loss': loss, 'train_cer': cer, 'train_wer': wer}
         return {'loss': loss, 'cer': cer, 'teacher_forcing': self.teacher_forcing_ratio, 'log': logs}
 
-    def validation_step(self, batch, batch_num):
-        input_tensor, lengths, target_tensor = batch
-        loss, probs_seq = self.forward(input_tensor, lengths, target_tensor, enable_teacher=False)
-        cer, wer = self.greedy_decode(probs_seq, target_tensor, batch_num, log_interval=20, log=True)
-        beam_cer, beam_wer = self.beam_decode(probs_seq, target_tensor)
+    def save_attention(self, results, target_tensor, input_lengths, attn_weights):
+        batch_size = results.size(0)
+        for batch in range(batch_size):
+            label, output = '', ''
+            _, greedy = results.topk(1, dim=2)
+            greedy = greedy.squeeze(dim=2)
+            cer, wer = 0, 0
+            target_length = results.size(1)
+            for index in range(100):
+                output += self.int2char[int(greedy[batch, index])]
+                label += self.int2char[int(target_tensor[batch, index])]
+            label = label.replace("<eos>", '@')
+            label = label[:label.find('@')]
+            output = output.replace("<eos>", '@')
+            output = output[:output.find('@')]
+            self.plot_attention(label, output, attn_weights[batch][:input_lengths[batch], :input_lengths[batch]].cpu())
 
-        loss_teacher, probs_seq = self.forward(input_tensor, lengths, target_tensor, enable_teacher=True)
-        cer_teacher, wer_teacher = self.greedy_decode(probs_seq, target_tensor, batch_num, log_interval=20, log=True)
-        beam_cer_teacher, beam_wer_teacher = self.beam_decode(probs_seq, target_tensor)
+    def plot_attention(self, input_sentence, output_sentence, attentions):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        cax = ax.matshow(attentions.numpy())
+        fig.colorbar(cax)
+
+        ax.set_xlabel(input_sentence)
+        ax.set_ylabel(output_sentence)
+
+        directory = "data/viz/lrs2/attention"
+        os.makedirs(directory, exist_ok=True)
+        path = f"{directory}/{input_sentence}.pdf"
+        plt.savefig(path)
+        plt.clf()
+        plt.close()
+
+    def validation_step(self, batch, batch_num):
+        frames, input_lengths, target = batch
+        loss, results, attn_weights = self.forward(frames, input_lengths, target, enable_teacher=False)
+        # self.save_attention(results, target, input_lengths, attn_weights)
+        cer, wer, sentences_greedy = self.greedy_decode(results, target, batch_num)
+        beam_cer, beam_wer, sentences_beam = self.beam_decode(results, target)
+
+        loss_teacher, results, _ = self.forward(frames, input_lengths, target, enable_teacher=True)
+        cer_teacher, wer_teacher, sentences_greedy_teacher = self.greedy_decode(results, target, batch_num)
+        beam_cer_teacher, beam_wer_teacher, sentences_beam_teacher = self.beam_decode(results, target)
+
+        print(f"Label: {sentences_greedy[0][0]}\nGreedy: {sentences_greedy[0][1]}\nGreedy, Teacher: {sentences_greedy_teacher[0][1]}\nBeam: {sentences_beam[0][1]}\nBeam, Teacher: {sentences_beam_teacher[0][1]}")
 
         return {
             'val_loss': loss,
@@ -344,10 +384,10 @@ class AttentionDecoder(nn.Module):
         input = self.embedded(input)
         concatenated = torch.cat([input, context], dim=2)
         output, (hidden_state, cell_state) = self.lstm(concatenated, (hidden_state, cell_state))
-        context = self.attention(hidden_state[-1], watch_outputs)
+        context, attn_weights = self.attention(hidden_state[-1], watch_outputs)
         output = self.mlp(torch.cat([output, context], dim=2).squeeze(dim=1)).unsqueeze(dim=1)
         output = F.log_softmax(output, dim=2)
-        return output, hidden_state, cell_state, context
+        return output, hidden_state, cell_state, context, attn_weights
 
 
 class Attention(nn.Module):
@@ -365,7 +405,7 @@ class Attention(nn.Module):
 
         concatenated = torch.cat([prev_hidden_state, annotations], dim=2)
         attn_energies = self.dense(concatenated).squeeze(dim=2)
-        alpha = F.softmax(attn_energies, dim=1).unsqueeze(dim=1)
-        context = alpha.bmm(annotations)
+        attn_weights = F.softmax(attn_energies, dim=1).unsqueeze(dim=1)
+        context = attn_weights.bmm(annotations)
 
-        return context
+        return context, attn_weights
