@@ -26,10 +26,23 @@ class LRS2Dataset(Dataset):
         self.max_text_len = max_text_len
         self.pretrain_words = pretrain_words
         self.file_paths, self.file_names, self.crops = self.build_file_list(path, mode)
+        self.dictionary = self.build_dictionary(path)
         self.char_list = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
                           'U', 'V', 'W', 'X', 'Y', 'Z', '1', '2', '3', '4', '5', '6', '7', '8',  '9', '0', '<sos>', '<eos>', '<pad>', '\'', ' ']
         self.int2char = dict(enumerate(self.char_list))
         self.char2int = {char: index for index, char in self.int2char.items()}
+
+    def build_dictionary(self, directory):
+        dictionary = set()
+        file = open(f"{directory}/train.txt", "r")
+        for file in file.readlines():
+            file = file.split(" ")[0]
+            path = f"{directory}/mvlrs_v1/main/{file}.txt"
+            content = open(path, "r").read()
+            sentence = content.splitlines()[0][7:]
+            words = sentence.split(" ")
+            dictionary.update(words)
+        return list(dictionary)
 
     def build_file_list(self, directory, mode):
         file_list, paths = [], []

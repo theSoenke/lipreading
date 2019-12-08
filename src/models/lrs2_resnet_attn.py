@@ -1,3 +1,4 @@
+import difflib
 import os
 import random
 import re
@@ -67,6 +68,7 @@ class LRS2ResnetAttn(Module):
         dataset = self.train_dataloader().dataset
         self.int2char = dataset.int2char
         self.char2int = dataset.char2int
+        self.dictionary = dataset.dictionary
 
         self.frontend = nn.Sequential(
             nn.Conv3d(self.in_channels, 64, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
@@ -145,7 +147,7 @@ class LRS2ResnetAttn(Module):
         results = torch.stack(results, dim=1).softmax(dim=2)
         return loss / max_length, results, decoder_attentions
 
-    def decode(self, label_tokens, target_tokens):
+    def decode(self, label_tokens, target_tokens, use_dictionary=False):
         label, output = '', ''
         for index in range(len(label_tokens)):
             label += self.int2char[int(label_tokens[index])]
@@ -159,8 +161,17 @@ class LRS2ResnetAttn(Module):
         pattern = re.compile(r"(.)\1{2,}", re.DOTALL)  # remove characters that are repeated more than 3 times
         output = pattern.sub(r"\1", output)
 
-        cer = editdistance.eval(output, label) / max(len(output), len(label))
         output_words, label_words = output.split(" "), label.split(" ")
+        if use_dictionary:
+            for i, word in enumerate(output_words):
+                if word not in self.dictionary:
+                    closest_words = difflib.get_close_matches(word, self.dictionary, cutoff=0.9)
+                    if len(closest_words) > 0:
+                        output_words[i] = closest_words[0]
+
+            output = ' '.join(output_words)
+
+        cer = editdistance.eval(output, label) / max(len(output), len(label))
         wer = editdistance.eval(output_words, label_words) / max(len(output_words), len(label_words))
 
         return label, output, cer, wer
