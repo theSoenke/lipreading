@@ -145,55 +145,54 @@ class LRS2ResnetAttn(Module):
         results = torch.stack(results, dim=1).softmax(dim=2)
         return loss / max_length, results, decoder_attentions
 
-    def greedy_decode(self, results, target_tensor, batch_num):
+    def decode(self, label_tokens, target_tokens):
+        label, output = '', ''
+        for index in range(len(label_tokens)):
+            label += self.int2char[int(label_tokens[index])]
+        for index in range(len(target_tokens)):
+            output += self.int2char[int(target_tokens[index])]
+        label = label.replace('<pad>', ' ').replace('<eos>', '@')
+        label = label[:label.find("@")]
+        output = output.replace('<eos>', '@').replace('<pad>', '&').replace('<sos>', '&')
+        output = output[:output.find('@')].strip()
+        output = re.sub(' +', ' ', output)
+        pattern = re.compile(r"(.)\1{2,}", re.DOTALL)  # remove characters that are repeated more 3 times
+        output = pattern.sub(r"\1", output)
+
+        cer = editdistance.eval(output, label) / max(len(output), len(label))
+        output_words, label_words = output.split(" "), label.split(" ")
+        wer = editdistance.eval(output_words, label_words) / max(len(output_words), len(label_words))
+
+        return label, output, cer, wer
+
+    def greedy_decode(self, results, target, batch_num):
         _, results = results.topk(1, dim=2)
         results = results.squeeze(dim=2)
-        cer, wer = 0, 0
-        target_length = results.size(1)
+        cer_sum, wer_sum = 0, 0
         batch_size = results.size(0)
         sentences = []
         for batch in range(batch_size):
-            output = ''
-            label = ''
-            for index in range(target_length):
-                output += self.int2char[int(results[batch, index])]
-                label += self.int2char[int(target_tensor[batch, index])]
-            label = label.replace('<pad>', ' ').replace('<eos>', '@')
-            label = label[:label.find("@")]
-            output = output.replace('<eos>', '@').replace('<pad>', '&').replace('<sos>', '&')
-            output = output[:output.find('@')].strip()
-            output = re.sub(' +', ' ', output)
+            label, output, cer, wer = self.decode(target[batch], results[batch])
             sentences.append([label, output])
-            cer += editdistance.eval(output, label) / max(len(output), len(label))
-            output_words, label_words = output.split(" "), label.split(" ")
-            wer += editdistance.eval(output_words, label_words) / max(len(output_words), len(label_words))
+            cer_sum += cer
+            wer_sum += wer
 
-        return cer / batch_size, wer / batch_size, sentences
+        return cer_sum / batch_size, wer_sum / batch_size, sentences
 
-    def beam_decode(self, results, target_tensor):
+    def beam_decode(self, results, target):
         beam_results, beam_scores, timesteps, out_seq_len = self.decoder.decode(results)
-        target_length = results.size(1)
         batch_size = results.size(0)
-        cer, wer = 0, 0
+        cer_sum, wer_sum = 0, 0
         sentences = []
         for batch in range(batch_size):
             seq_len = out_seq_len[batch][0]
-            tokens = beam_results[batch][0]  # select output with best score
-            output = ''.join([self.vocab_list[x] for x in tokens[0:seq_len]])
-            output = output[:output.find('@')].strip()
-            output = re.sub(' +', ' ', output)
-
-            label = ''
-            for index in range(target_length):
-                label += self.int2char[int(target_tensor[batch, index])]
-            label = label.replace('<pad>', ' ').replace('<eos>', '@')
-            label = label[:label.find("@")]
+            tokens = beam_results[batch][0][:seq_len]  # select output with best score
+            label, output, cer, wer = self.decode(target[batch], tokens)
             sentences.append([label, output])
-            cer += editdistance.eval(output, label) / max(len(output), len(label))
-            output_words, label_words = output.split(" "), label.split(" ")
-            wer += editdistance.eval(output_words, label_words) / max(len(output_words), len(label_words))
+            cer_sum += cer
+            wer_sum += wer
 
-        return cer / batch_size, wer / batch_size, sentences
+        return cer_sum / batch_size, wer_sum / batch_size, sentences
 
     def training_step(self, batch, batch_num):
         frames, input_lengths, target = batch
@@ -209,9 +208,8 @@ class LRS2ResnetAttn(Module):
             label, output = '', ''
             _, greedy = results.topk(1, dim=2)
             greedy = greedy.squeeze(dim=2)
-            cer, wer = 0, 0
             target_length = results.size(1)
-            for index in range(100):
+            for index in range(target_length):
                 output += self.int2char[int(greedy[batch, index])]
                 label += self.int2char[int(target_tensor[batch, index])]
             label = label.replace("<eos>", '@')
@@ -247,7 +245,11 @@ class LRS2ResnetAttn(Module):
         cer_teacher, wer_teacher, sentences_greedy_teacher = self.greedy_decode(results, target, batch_num)
         beam_cer_teacher, beam_wer_teacher, sentences_beam_teacher = self.beam_decode(results, target)
 
-        print(f"Label: {sentences_greedy[0][0]}\nGreedy: {sentences_greedy[0][1]}\nGreedy, Teacher: {sentences_greedy_teacher[0][1]}\nBeam: {sentences_beam[0][1]}\nBeam, Teacher: {sentences_beam_teacher[0][1]}")
+        batch_size = results.size(0)
+        if batch_num % 10 == 0:
+            for i in range(batch_size):
+                print(
+                    f"Label: {sentences_greedy[i][0]}\nGreedy: {sentences_greedy[i][1]}\nGreedy, Teacher: {sentences_greedy_teacher[i][1]}\nBeam: {sentences_beam[i][1]}\nBeam, Teacher: {sentences_beam_teacher[i][1]}\n")
 
         return {
             'val_loss': loss,
