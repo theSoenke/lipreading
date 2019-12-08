@@ -156,7 +156,7 @@ class LRS2ResnetAttn(Module):
         output = output.replace('<eos>', '@').replace('<pad>', '&').replace('<sos>', '&')
         output = output[:output.find('@')].strip()
         output = re.sub(' +', ' ', output)
-        pattern = re.compile(r"(.)\1{2,}", re.DOTALL)  # remove characters that are repeated more 3 times
+        pattern = re.compile(r"(.)\1{2,}", re.DOTALL)  # remove characters that are repeated more than 3 times
         output = pattern.sub(r"\1", output)
 
         cer = editdistance.eval(output, label) / max(len(output), len(label))
@@ -201,38 +201,6 @@ class LRS2ResnetAttn(Module):
 
         logs = {'train_loss': loss, 'train_cer': cer, 'train_wer': wer}
         return {'loss': loss, 'cer': cer, 'teacher_forcing': self.teacher_forcing_ratio, 'log': logs}
-
-    def save_attention(self, results, target_tensor, input_lengths, attn_weights):
-        batch_size = results.size(0)
-        for batch in range(batch_size):
-            label, output = '', ''
-            _, greedy = results.topk(1, dim=2)
-            greedy = greedy.squeeze(dim=2)
-            target_length = results.size(1)
-            for index in range(target_length):
-                output += self.int2char[int(greedy[batch, index])]
-                label += self.int2char[int(target_tensor[batch, index])]
-            label = label.replace("<eos>", '@')
-            label = label[:label.find('@')]
-            output = output.replace("<eos>", '@')
-            output = output[:output.find('@')]
-            self.plot_attention(label, output, attn_weights[batch][:input_lengths[batch], :input_lengths[batch]].cpu())
-
-    def plot_attention(self, input_sentence, output_sentence, attentions):
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        cax = ax.matshow(attentions.numpy())
-        fig.colorbar(cax)
-
-        ax.set_xlabel(input_sentence)
-        ax.set_ylabel(output_sentence)
-
-        directory = "data/viz/lrs2/attention"
-        os.makedirs(directory, exist_ok=True)
-        path = f"{directory}/{input_sentence}.pdf"
-        plt.savefig(path)
-        plt.clf()
-        plt.close()
 
     def validation_step(self, batch, batch_num):
         frames, input_lengths, target = batch
@@ -307,6 +275,38 @@ class LRS2ResnetAttn(Module):
             'log': logs,
         }
 
+    def save_attention(self, results, target_tensor, input_lengths, attn_weights):
+        batch_size = results.size(0)
+        for batch in range(batch_size):
+            label, output = '', ''
+            _, greedy = results.topk(1, dim=2)
+            greedy = greedy.squeeze(dim=2)
+            target_length = results.size(1)
+            for index in range(target_length):
+                output += self.int2char[int(greedy[batch, index])]
+                label += self.int2char[int(target_tensor[batch, index])]
+            label = label.replace("<eos>", '@')
+            label = label[:label.find('@')]
+            output = output.replace("<eos>", '@')
+            output = output[:output.find('@')]
+            self.plot_attention(label, output, attn_weights[batch][:input_lengths[batch], :input_lengths[batch]].cpu())
+
+    def plot_attention(self, input_sentence, output_sentence, attentions):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        cax = ax.matshow(attentions.numpy())
+        fig.colorbar(cax)
+
+        ax.set_xlabel(input_sentence)
+        ax.set_ylabel(output_sentence)
+
+        directory = "data/viz/lrs2/attention"
+        os.makedirs(directory, exist_ok=True)
+        path = f"{directory}/{input_sentence}.pdf"
+        plt.savefig(path)
+        plt.clf()
+        plt.close()
+
     def on_epoch_start(self, epoch):
         decay_rate = (1.0 - self.min_teacher_forcing_ratio) / (self.hparams.epochs - 1)
         self.teacher_forcing_ratio = 1.0 - (epoch * decay_rate)
@@ -349,13 +349,14 @@ class LRS2ResnetAttn(Module):
         val_data = LRS2Dataset(
             path=self.hparams.data,
             mode='val',
-            max_timesteps=100,
+            max_timesteps=112,
             max_text_len=100,
             pretrain_words=0,
             pretrain=False,
         )
         val_loader = DataLoader(
-            val_data, shuffle=False,
+            val_data,
+            shuffle=False,
             batch_size=self.hparams.batch_size * 2,
             num_workers=self.hparams.workers,
         )
