@@ -36,7 +36,7 @@ class LRS2Dataset(Dataset):
         dictionary = set()
         file = open(f"{directory}/train.txt", "r")
         for file in file.readlines():
-            file = file.split(" ")[0]
+            file = file.split(" ")[0].strip()
             path = f"{directory}/mvlrs_v1/main/{file}.txt"
             content = open(path, "r").read()
             sentence = content.splitlines()[0][7:]

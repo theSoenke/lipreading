@@ -176,7 +176,7 @@ def prepare_language_model(path, output_path):
     file = open(f"{path}/train.txt", "r")
     content = file.read()
     sentence_lines = []
-    # char_lines = []
+    char_lines = []
     all_words = set()
     for file in content.splitlines():
         label_file = open(f"{path}/mvlrs_v1/main/{file}.txt")
@@ -186,17 +186,17 @@ def prepare_language_model(path, output_path):
         for word in words:
             all_words.add(word)
         sentence_lines.append(sentence)
-        # sentence = sentence.replace(' ', '@') # prepare for training char lm
-        # char_lines.append(' '.join([char for char in sentence]))
+        sentence = sentence.replace(' ', '$')
+        char_lines.append(' '.join([char for char in sentence]))
     print(f"words: {len(all_words)}")
     print(all_words)
     file = open(f"{output_path}/sentences.txt", "w")
     file.write('\n'.join(sentence_lines))
     file.close()
 
-    # file = open(f"{output_path}/characters.txt", "w")
-    # file.write('\n'.join(char_lines))
-    # file.close()
+    file = open(f"{output_path}/characters.txt", "w")
+    file.write('\n'.join(char_lines))
+    file.close()
 
 
 def build_file_list(directory, mode):

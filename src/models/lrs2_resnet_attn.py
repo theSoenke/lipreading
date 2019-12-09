@@ -308,8 +308,8 @@ class LRS2ResnetAttn(Module):
         cax = ax.matshow(attentions.numpy())
         fig.colorbar(cax)
 
-        ax.set_xlabel(input_sentence)
-        ax.set_ylabel(output_sentence)
+        ax.set_ylabel(input_sentence)
+        ax.set_xlabel(output_sentence)
 
         directory = "data/viz/lrs2/attention"
         os.makedirs(directory, exist_ok=True)
