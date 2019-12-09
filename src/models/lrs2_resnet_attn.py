@@ -176,7 +176,7 @@ class LRS2ResnetAttn(Module):
 
         return label, output, cer, wer
 
-    def greedy_decode(self, results, target, batch_num):
+    def greedy_decode(self, results, target):
         _, results = results.topk(1, dim=2)
         results = results.squeeze(dim=2)
         cer_sum, wer_sum = 0, 0
@@ -208,7 +208,7 @@ class LRS2ResnetAttn(Module):
     def training_step(self, batch, batch_num):
         frames, input_lengths, target = batch
         loss, results, _ = self.forward(frames, input_lengths, target)
-        cer, wer, sentences = self.greedy_decode(results, target, batch_num)
+        cer, wer, sentences = self.greedy_decode(results, target)
 
         logs = {'train_loss': loss, 'train_cer': cer, 'train_wer': wer}
         return {'loss': loss, 'cer': cer, 'teacher_forcing': self.teacher_forcing_ratio, 'log': logs}
@@ -217,18 +217,13 @@ class LRS2ResnetAttn(Module):
         frames, input_lengths, target = batch
         loss, results, attn_weights = self.forward(frames, input_lengths, target, enable_teacher=False)
         # self.save_attention(results, target, input_lengths, attn_weights)
-        cer, wer, sentences_greedy = self.greedy_decode(results, target, batch_num)
+        cer, wer, sentences_greedy = self.greedy_decode(results, target)
         beam_cer, beam_wer, sentences_beam = self.beam_decode(results, target)
-
-        loss_teacher, results, _ = self.forward(frames, input_lengths, target, enable_teacher=True)
-        cer_teacher, wer_teacher, sentences_greedy_teacher = self.greedy_decode(results, target, batch_num)
-        beam_cer_teacher, beam_wer_teacher, sentences_beam_teacher = self.beam_decode(results, target)
 
         batch_size = results.size(0)
         if batch_num % 10 == 0:
             for i in range(batch_size):
-                print(
-                    f"Label: {sentences_greedy[i][0]}\nGreedy: {sentences_greedy[i][1]}\nGreedy, Teacher: {sentences_greedy_teacher[i][1]}\nBeam: {sentences_beam[i][1]}\nBeam, Teacher: {sentences_beam_teacher[i][1]}\n")
+                print(f"Label: {sentences_greedy[i][0]}\nGreedy: {sentences_greedy[i][1]}\nBeam: {sentences_beam[i][1]}\n")
 
         return {
             'val_loss': loss,
@@ -236,11 +231,6 @@ class LRS2ResnetAttn(Module):
             'val_wer': wer,
             'val_beam_cer': beam_cer,
             'val_beam_wer': beam_wer,
-            'val_loss_teacher': loss_teacher,
-            'val_cer_teacher': cer_teacher,
-            'val_wer_teacher': wer_teacher,
-            'val_beam_cer_teacher': beam_cer_teacher,
-            'val_beam_wer_teacher': beam_wer_teacher,
         }
 
     def validation_end(self, outputs):
@@ -249,11 +239,6 @@ class LRS2ResnetAttn(Module):
         loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         beam_cer = np.mean([x['val_beam_cer'] for x in outputs])
         beam_wer = np.mean([x['val_beam_wer'] for x in outputs])
-        beam_cer_teacher = np.mean([x['val_beam_cer_teacher'] for x in outputs])
-        beam_wer_teacher = np.mean([x['val_beam_wer_teacher'] for x in outputs])
-        cer_teacher = np.mean([x['val_cer_teacher'] for x in outputs])
-        wer_teacher = np.mean([x['val_wer_teacher'] for x in outputs])
-        loss_teacher = torch.stack([x['val_loss_teacher'] for x in outputs]).mean()
 
         if self.best_val_cer > cer:
             self.best_val_cer = cer
@@ -265,11 +250,6 @@ class LRS2ResnetAttn(Module):
             'val_wer': wer,
             'val_beam_cer': beam_cer,
             'val_beam_wer': beam_wer,
-            'val_loss_teacher': loss_teacher,
-            'val_cer_teacher': cer_teacher,
-            'val_wer_teacher': wer_teacher,
-            'val_beam_cer_teacher': beam_cer_teacher,
-            'val_beam_wer_teacher': beam_wer_teacher,
             'best_val_cer': self.best_val_cer,
             'best_val_wer': self.best_val_wer,
         }
@@ -286,21 +266,12 @@ class LRS2ResnetAttn(Module):
             'log': logs,
         }
 
-    def save_attention(self, results, target_tensor, input_lengths, attn_weights):
+    def save_attention(self, results, target, input_lengths, attn_weights):
+        _, _, sentences = self.greedy_decode(results, target)
         batch_size = results.size(0)
-        for batch in range(batch_size):
-            label, output = '', ''
-            _, greedy = results.topk(1, dim=2)
-            greedy = greedy.squeeze(dim=2)
-            target_length = results.size(1)
-            for index in range(target_length):
-                output += self.int2char[int(greedy[batch, index])]
-                label += self.int2char[int(target_tensor[batch, index])]
-            label = label.replace("<eos>", '@')
-            label = label[:label.find('@')]
-            output = output.replace("<eos>", '@')
-            output = output[:output.find('@')]
-            self.plot_attention(label, output, attn_weights[batch][:input_lengths[batch], :input_lengths[batch]].cpu())
+        for i in range(batch_size):
+            label, output = sentences[i]
+            self.plot_attention(label, output, attn_weights[i][:len(output), :input_lengths[i]].cpu())
 
     def plot_attention(self, input_sentence, output_sentence, attentions):
         fig = plt.figure()
