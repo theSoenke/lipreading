@@ -24,14 +24,16 @@ def accuracy(preds, labels, files, degree=15):
     print(f"Total samples: {total_samples}")
     print(f"Correct samples: {correct_samples}")
 
-def plot_pose(path):
+
+def plot_pose_lrw(path):
     h5file = tables.open_file(path, mode='r')
     column = 'yaw'
     rows = h5file.root['train'].where('%s < 180' % column)
     samples = [row[column] for row in rows]
     angles = np.array(samples)
-    plt.hist(angles, bins=180)
-    plt.xlabel(column)
+    plt.figure(figsize=(9.5, 5))
+    plt.hist(angles, bins=180, ec='white')
+    plt.xlabel("Yaw angle")
     plt.show()
 
 
@@ -43,14 +45,18 @@ def plot_ouluvs2(path):
     angles = np.array([[sample[0], sample[1]] for sample in samples])
     files = [sample[2] for sample in samples]
     accuracy(angles[:, 0], angles[:, 1], files)
-    plt.hist(angles[:, 0], bins=180)
-    plt.xlabel(column)
+    plt.figure(figsize=(9.5, 5))
+    plt.hist(angles[:, 0], bins=180, ec='white')
+    plt.xlabel("Yaw angle")
     plt.show()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument('set', type=str)
     parser.add_argument('--data', required=True)
     args = parser.parse_args()
-    plot_ouluvs2(args.data)
-    # plot_pose(args.data)
+    if args.set == 'lrw':
+        plot_pose_lrw(args.data)
+    else:
+        plot_ouluvs2(args.data)
