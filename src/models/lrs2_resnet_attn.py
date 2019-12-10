@@ -19,6 +19,8 @@ from torch.utils.data import DataLoader
 from src.data.lrs2 import LRS2Dataset
 from src.models.resnet import ResNetModel
 
+import matplotlib.ticker as ticker
+
 
 class LabelSmoothingLoss(nn.Module):
     """
@@ -271,7 +273,7 @@ class LRS2ResnetAttn(Module):
         batch_size = results.size(0)
         for i in range(batch_size):
             label, output = sentences[i]
-            self.plot_attention(label, output, attn_weights[i][:len(output), :input_lengths[i]].cpu())
+            self.plot_attention(label, output, attn_weights[i][:len(output), :input_lengths[i]].transpose(0, 1).cpu())
 
     def plot_attention(self, input_sentence, output_sentence, attentions):
         fig = plt.figure()
@@ -279,8 +281,10 @@ class LRS2ResnetAttn(Module):
         cax = ax.matshow(attentions.numpy())
         fig.colorbar(cax)
 
-        ax.set_ylabel(input_sentence)
-        ax.set_xlabel(output_sentence)
+        ax.set_ylabel(f"{input_sentence}")
+        output = [char for char in output_sentence]
+        ax.set_xticklabels([''] + output)
+        ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
 
         directory = "data/viz/lrs2/attention"
         os.makedirs(directory, exist_ok=True)
