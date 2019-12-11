@@ -6,6 +6,7 @@ import re
 import ctcdecode
 import editdistance
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import numpy as np
 import torch
 import torchvision.transforms as transforms
@@ -18,8 +19,6 @@ from torch.utils.data import DataLoader
 
 from src.data.lrs2 import LRS2Dataset
 from src.models.resnet import ResNetModel
-
-import matplotlib.ticker as ticker
 
 
 class LabelSmoothingLoss(nn.Module):
@@ -101,19 +100,22 @@ class LRS2ResnetAttn(Module):
         self.vocab_list[self.vocab_list.index("<pad>")] = "_"
         self.vocab_list[self.vocab_list.index("<eos>")] = "@"
         self.vocab_list[self.vocab_list.index("<sos>")] = "$"
-        self.decoder = ctcdecode.CTCBeamDecoder(
-            self.vocab_list,
-            model_path=hparams.lm_path,
-            alpha=1.0,
-            beta=1.0,
-            cutoff_top_n=50,
-            cutoff_prob=0.99,
-            beam_width=200,
-            blank_id=self.vocab_list.index("_"),
-        )
+        self.create_decoder(alpha=1.0, beta=1.0)
 
         self.best_val_cer = 1.0
         self.best_val_wer = 1.0
+
+    def create_decoder(self, alpha, beta):
+        self.decoder = ctcdecode.CTCBeamDecoder(
+            self.vocab_list,
+            model_path=self.hparams.lm_path,
+            alpha=alpha,
+            beta=beta,
+            cutoff_top_n=50,
+            cutoff_prob=0.99,
+            beam_width=100,
+            blank_id=self.vocab_list.index("_"),
+        )
 
     def forward(self, x, lengths, target_tensor, enable_teacher=True):
         x = self.frontend(x)

@@ -36,7 +36,6 @@ if __name__ == "__main__":
         head_poses(args.data)
     elif args.set == "lrs2":
         lrs2_extract_angles(args.data, output_path=output_path, num_workers=args.workers)
-        lrs2_mouth_bounding_boxes(args.data, output_path=output_path)
         # lrs2_prepare_language_model(args.data, output_path)
         preprocess_lrs2(args.data, output_path, args.workers)
     else:
