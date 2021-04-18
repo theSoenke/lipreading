@@ -1,13 +1,13 @@
 #!/bin/bash
 
 urls=(
-    "http://www.robots.ox.ac.uk/~vgg/data/lip_reading/data1/lrw-v1-partaa"
-    "http://www.robots.ox.ac.uk/~vgg/data/lip_reading/data1/lrw-v1-partab"
-    "http://www.robots.ox.ac.uk/~vgg/data/lip_reading/data1/lrw-v1-partac"
-    "http://www.robots.ox.ac.uk/~vgg/data/lip_reading/data1/lrw-v1-partad"
-    "http://www.robots.ox.ac.uk/~vgg/data/lip_reading/data1/lrw-v1-partae"
-    "http://www.robots.ox.ac.uk/~vgg/data/lip_reading/data1/lrw-v1-partaf"
-    "http://www.robots.ox.ac.uk/~vgg/data/lip_reading/data1/lrw-v1-partag"
+    "https://thor.robots.ox.ac.uk/~vgg/data/lip_reading/data1/lrw-v1-partaa"
+    "https://thor.robots.ox.ac.uk/~vgg/data/lip_reading/data1/lrw-v1-partab"
+    "https://thor.robots.ox.ac.uk/~vgg/data/lip_reading/data1/lrw-v1-partac"
+    "https://thor.robots.ox.ac.uk/~vgg/data/lip_reading/data1/lrw-v1-partad"
+    "https://thor.robots.ox.ac.uk/~vgg/data/lip_reading/data1/lrw-v1-partae"
+    "https://thor.robots.ox.ac.uk/~vgg/data/lip_reading/data1/lrw-v1-partaf"
+    "https://thor.robots.ox.ac.uk/~vgg/data/lip_reading/data1/lrw-v1-partag"
 )
 
 dir=${1:-"data/datasets/lrw"}
